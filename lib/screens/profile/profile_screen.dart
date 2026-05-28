@@ -167,18 +167,19 @@ class ProfileScreen extends ConsumerWidget {
   void _confirmLogout(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('Keluar dari Evoria?'),
         content: const Text('Kamu perlu login lagi untuk mengakses akunmu.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogCtx),
             child: const Text('Batal'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogCtx);
               await ref.read(authProvider.notifier).logout();
+              if (context.mounted) context.go('/login');
             },
             child: const Text('Keluar',
                 style: TextStyle(color: AppColors.error)),

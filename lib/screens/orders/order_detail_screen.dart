@@ -19,6 +19,7 @@ class OrderDetailScreen extends ConsumerStatefulWidget {
 
 class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
   bool _syncing = false;
+  bool _cancelling = false;
 
   Future<void> _syncStatus(OrderModel order) async {
     setState(() => _syncing = true);
@@ -39,6 +40,57 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
       }
     } finally {
       if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<void> _cancelOrder(OrderModel order) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Batalkan Order?'),
+        content: Text(
+          'Order ${order.orderNumber} akan dibatalkan dan stok tiket dikembalikan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Tidak'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Ya, Batalkan'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _cancelling = true);
+    try {
+      await ref.read(orderRepositoryProvider).cancelOrder(order.id);
+      ref.invalidate(orderDetailProvider(order.id));
+      ref.invalidate(ordersProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order berhasil dibatalkan'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
     }
   }
 
@@ -85,6 +137,11 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
           ...order.orderItems.map((item) => _buildTicketItem(item)),
           const SizedBox(height: 12),
           _buildTotalSection(order),
+          if (order.isPending) ...[
+            const SizedBox(height: 16),
+            _buildCancelButton(order),
+          ],
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -209,7 +266,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -265,11 +322,36 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
     );
   }
 
+  Widget _buildCancelButton(OrderModel order) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _cancelling ? null : () => _cancelOrder(order),
+        icon: _cancelling
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.error),
+              )
+            : const Icon(Icons.cancel_outlined, color: AppColors.error),
+        label: Text(
+          _cancelling ? 'Membatalkan...' : 'Batalkan Order',
+          style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.w700),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: AppColors.error),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
   Widget _statusBadge(String status) {
     final (color, bg) = switch (status) {
-      'paid' => (AppColors.success, AppColors.success.withOpacity(0.1)),
-      'pending' => (AppColors.warning, AppColors.warning.withOpacity(0.1)),
-      'cancelled' || 'failed' => (AppColors.error, AppColors.error.withOpacity(0.1)),
+      'paid' => (AppColors.success, AppColors.success.withValues(alpha: 0.1)),
+      'pending' => (AppColors.warning, AppColors.warning.withValues(alpha: 0.1)),
+      'cancelled' || 'failed' => (AppColors.error, AppColors.error.withValues(alpha: 0.1)),
       _ => (AppColors.textSecondary, AppColors.border),
     };
     return Container(

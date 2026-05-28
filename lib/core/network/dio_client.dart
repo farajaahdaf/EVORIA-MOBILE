@@ -34,7 +34,12 @@ class DioClient {
           }
           return handler.next(options);
         },
-        onError: (error, handler) {
+        onError: (error, handler) async {
+          if (error.response?.statusCode == 401) {
+            // Token expired or revoked — clear local auth so next
+            // app launch (or _init re-run) detects unauthenticated state.
+            await _storage.clearAll();
+          }
           return handler.next(error);
         },
       ),

@@ -9,6 +9,7 @@ import '../../models/event_model.dart';
 import '../../models/ticket_model.dart';
 import '../../providers/events_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/orders_provider.dart';
 import '../../repositories/order_repository.dart';
 
 class EventDetailScreen extends ConsumerStatefulWidget {
@@ -19,20 +20,49 @@ class EventDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
-class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
+class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
+    with SingleTickerProviderStateMixin {
   TicketModel? _selectedTicket;
   int _quantity = 1;
   bool _booking = false;
 
+  final _scrollCtrl = ScrollController();
+  final _ticketKey = GlobalKey();
+  late final AnimationController _highlightCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 600),
+  );
+  late final Animation<double> _highlightAnim =
+      CurvedAnimation(parent: _highlightCtrl, curve: Curves.easeInOut);
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    _highlightCtrl.dispose();
+    super.dispose();
+  }
+
+  void _scrollToTickets() {
+    final ctx = _ticketKey.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeInOut,
+      alignment: 0.0,
+    ).then((_) {
+      _highlightCtrl.forward(from: 0).then((_) => _highlightCtrl.reverse());
+    });
+  }
+
   Future<void> _bookTicket(EventModel event) async {
     if (_selectedTicket == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih tipe tiket terlebih dahulu')),
-      );
+      _scrollToTickets();
       return;
     }
-
+    if (_booking) return;
     setState(() => _booking = true);
+
     try {
       final result = await ref.read(orderRepositoryProvider).bookTicket(
             eventId: event.id,
@@ -43,11 +73,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       if (!mounted) return;
 
       if (result.isFree) {
+        ref.invalidate(ordersProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.message),
-            backgroundColor: AppColors.success,
-          ),
+          SnackBar(content: Text(result.message), backgroundColor: AppColors.success),
         );
         context.go('/orders');
       } else {
@@ -55,15 +83,14 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           'snap_token': result.snapToken!,
           'order_number': result.orderNumber,
           'order_id': result.orderId!,
+          'payment_expires_at': result.paymentExpiresAt?.toIso8601String(),
+          'payment_timeout_minutes': result.paymentTimeoutMinutes,
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppColors.error,
-          ),
+          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -95,6 +122,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
+        controller: _scrollCtrl,
         slivers: [
           _buildHero(event),
           SliverToBoxAdapter(
@@ -294,14 +322,86 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   }
 
   Widget _buildTicketSection(EventModel event) {
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.all(20),
+    return AnimatedBuilder(
+      animation: _highlightAnim,
+      builder: (_, child) {
+        final glow = _highlightAnim.value;
+        return Container(
+          key: _ticketKey,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border(
+              left: BorderSide(
+                color: AppColors.primary.withValues(alpha: glow * 0.8),
+                width: 3 * glow,
+              ),
+            ),
+            boxShadow: glow > 0
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: glow * 0.15),
+                      blurRadius: 12 * glow,
+                      spreadRadius: 2 * glow,
+                    ),
+                  ]
+                : null,
+          ),
+          padding: const EdgeInsets.all(20),
+          child: child,
+        );
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Pilih Tiket',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          AnimatedBuilder(
+            animation: _highlightAnim,
+            builder: (_, child) => Transform.translate(
+              // Efek shake kecil saat highlight
+              offset: Offset(
+                _highlightAnim.value > 0
+                    ? 4 * (_highlightAnim.value < 0.5
+                        ? _highlightAnim.value * 2
+                        : (1 - _highlightAnim.value) * 2) *
+                        (_highlightCtrl.lastElapsedDuration?.inMilliseconds ?? 0) % 2 == 0
+                        ? 1.0
+                        : -1.0
+                    : 0,
+                0,
+              ),
+              child: child!,
+            ),
+            child: Row(
+              children: [
+                const Text(
+                  'Pilih Tiket',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(width: 6),
+                AnimatedBuilder(
+                  animation: _highlightAnim,
+                  builder: (_, __) => _highlightAnim.value > 0
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(
+                                alpha: _highlightAnim.value * 0.9),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            'Pilih dulu',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 12),
           ...event.tickets.map((t) => _buildTicketOption(t)),
         ],
@@ -434,15 +534,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: isLoggedIn
-                      ? (_booking ? null : () => _bookTicket(event))
+                      ? () => _bookTicket(event)
                       : () => context.push('/login'),
-                  child: _booking
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : Text(isLoggedIn ? 'Beli Tiket' : 'Masuk untuk Membeli'),
+                  child: Text(isLoggedIn ? 'Beli Tiket' : 'Masuk untuk Membeli'),
                 ),
               ),
             ],

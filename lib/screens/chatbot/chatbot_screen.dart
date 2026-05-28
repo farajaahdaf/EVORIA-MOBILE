@@ -1,7 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/format_utils.dart';
 import '../../providers/orders_provider.dart';
 import '../../repositories/chatbot_repository.dart';
 import '../../widgets/evoria_app_bar.dart';
@@ -37,13 +40,16 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
     _scrollToBottom();
 
     try {
-      final reply = await ref.read(chatbotRepositoryProvider).sendMessage(text);
-      notifier.addMessage(ChatMessage(text: reply, isUser: false));
-    } catch (e) {
+      final result = await ref.read(chatbotRepositoryProvider).sendMessage(text);
       notifier.addMessage(ChatMessage(
-        text: 'Maaf, terjadi kesalahan. Coba lagi.',
+        text: result.text,
         isUser: false,
+        events: result.events,
       ));
+    } catch (e) {
+      notifier.addMessage(
+        ChatMessage(text: 'Maaf, terjadi kesalahan. Coba lagi.', isUser: false),
+      );
     } finally {
       ref.read(_chatLoadingProvider.notifier).state = false;
       _scrollToBottom();
@@ -74,7 +80,10 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
         actions: [
           if (messages.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: AppColors.textSecondary),
+              icon: const Icon(
+                Icons.delete_outline,
+                color: AppColors.textSecondary,
+              ),
               onPressed: () {
                 ref.read(chatbotMessagesProvider.notifier).clear();
               },
@@ -116,7 +125,11 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
               color: AppColors.primaryLight,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.smart_toy, size: 48, color: AppColors.primary),
+            child: const Icon(
+              Icons.smart_toy,
+              size: 48,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -151,7 +164,10 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
               },
               child: Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
@@ -225,7 +241,10 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.5,
+                  ),
                 ),
                 filled: true,
                 fillColor: AppColors.background,
@@ -246,9 +265,15 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
                   ? const Padding(
                       padding: EdgeInsets.all(12),
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
-                  : const Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                  : const Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
             ),
           ),
         ],
@@ -265,69 +290,212 @@ class _ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment:
-            message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        crossAxisAlignment: message.isUser
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
-          if (!message.isUser) ...[
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.smart_toy, size: 18, color: Colors.white),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: message.isUser ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: message.isUser
-                      ? const Radius.circular(16)
-                      : const Radius.circular(4),
-                  bottomRight: message.isUser
-                      ? const Radius.circular(4)
-                      : const Radius.circular(16),
+          Row(
+            mainAxisAlignment: message.isUser
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!message.isUser) ...[
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.smart_toy, size: 18, color: Colors.white),
                 ),
-                border: message.isUser
-                    ? null
-                    : Border.all(color: AppColors.border),
-              ),
-              child: message.isUser
-                  ? Text(
-                      message.text,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 14, height: 1.4),
-                    )
-                  : MarkdownBody(
-                      data: message.text,
-                      styleSheet: MarkdownStyleSheet(
-                        p: const TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textPrimary,
-                          height: 1.5,
-                        ),
-                        a: const TextStyle(
-                          color: AppColors.primary,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: message.isUser ? AppColors.primary : AppColors.surface,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: message.isUser
+                          ? const Radius.circular(16)
+                          : const Radius.circular(4),
+                      bottomRight: message.isUser
+                          ? const Radius.circular(4)
+                          : const Radius.circular(16),
                     ),
-            ),
+                    border: message.isUser
+                        ? null
+                        : Border.all(color: AppColors.border),
+                  ),
+                  child: message.isUser
+                      ? Text(
+                          message.text,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
+                        )
+                      : MarkdownBody(
+                          data: message.text,
+                          styleSheet: MarkdownStyleSheet(
+                            p: const TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textPrimary,
+                              height: 1.5,
+                            ),
+                            a: const TextStyle(
+                              color: AppColors.primary,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              if (message.isUser) const SizedBox(width: 4),
+            ],
           ),
-          if (message.isUser) const SizedBox(width: 4),
+          // Event cards below AI bubble
+          if (!message.isUser && message.events.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 40),
+              child: _EventCards(events: message.events),
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+class _EventCards extends StatelessWidget {
+  final List<ChatEventCard> events;
+  const _EventCards({required this.events});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 130,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: events.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (_, i) => _EventChip(event: events[i]),
+      ),
+    );
+  }
+}
+
+class _EventChip extends StatelessWidget {
+  final ChatEventCard event;
+  const _EventChip({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/events/${event.id}'),
+      child: Container(
+        width: 200,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Banner
+            SizedBox(
+              height: 62,
+              width: double.infinity,
+              child: event.bannerUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: event.bannerUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => _placeholderBanner(),
+                    )
+                  : _placeholderBanner(),
+            ),
+            // Info
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  if (event.date != null)
+                    Text(
+                      event.date!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (event.lowestPrice != null)
+                        Flexible(
+                          child: Text(
+                            event.lowestPrice == 0
+                                ? 'Gratis'
+                                : formatRupiah(event.lowestPrice!),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 10,
+                        color: AppColors.textLight,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholderBanner() => Container(
+        color: AppColors.primaryLight,
+        child: const Center(
+          child: Icon(Icons.event, color: AppColors.primary, size: 24),
+        ),
+      );
 }
 
 class _TypingIndicator extends StatefulWidget {
@@ -339,20 +507,44 @@ class _TypingIndicator extends StatefulWidget {
 
 class _TypingIndicatorState extends State<_TypingIndicator>
     with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
+  late AnimationController _fadeCtrl;
+  late Animation<double> _fadeAnim;
+
+  int _msgIndex = 0;
+  static const _messages = [
+    '🤖 Tunggu ya, kita lagi siapkan jawabannya...',
+    '📅 Mengecek event yang tersedia...',
+    '✨ Hampir selesai, sebentar ya!',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))
-      ..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.4, end: 1).animate(_ctrl);
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..forward();
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeIn);
+
+    // Ganti pesan setiap 2.5 detik
+    _scheduleNext();
+  }
+
+  void _scheduleNext() {
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (!mounted) return;
+      _fadeCtrl.reverse().then((_) {
+        if (!mounted) return;
+        setState(() => _msgIndex = (_msgIndex + 1) % _messages.length);
+        _fadeCtrl.forward();
+        _scheduleNext();
+      });
+    });
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _fadeCtrl.dispose();
     super.dispose();
   }
 
@@ -361,6 +553,7 @@ class _TypingIndicatorState extends State<_TypingIndicator>
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Container(
             width: 32,
@@ -374,31 +567,24 @@ class _TypingIndicatorState extends State<_TypingIndicator>
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            constraints: const BoxConstraints(maxWidth: 260),
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
               border: Border.all(color: AppColors.border),
             ),
-            child: AnimatedBuilder(
-              animation: _anim,
-              builder: (_, __) => Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(
-                  3,
-                  (i) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: Opacity(
-                      opacity: i == 1 ? _anim.value : (1 - _anim.value) * 0.6 + 0.4,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ),
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: Text(
+                _messages[_msgIndex],
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  fontStyle: FontStyle.italic,
                 ),
               ),
             ),

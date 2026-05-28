@@ -1,19 +1,41 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class AppConstants {
-  // 10.0.2.2 = localhost dari Android emulator
-  static const String baseUrl = 'http://10.0.2.2:8000/api/v1';
-  static const String logoUrl = 'https://evoria.life/images/logo.png';
-  static const String storageUrl = 'https://evoria.life/storage';
+  // Semua nilai dibaca dari .env — fallback ke production jika key tidak ditemukan
+  static String get baseUrl =>
+      dotenv.env['BASE_URL'] ?? 'https://evoria.life/api/v1';
 
-  static const String midtransSnapUrlSandbox =
+  static String get _host {
+    final url = baseUrl;
+    final uri = Uri.tryParse(url);
+    return uri != null ? '${uri.scheme}://${uri.host}' : 'https://evoria.life';
+  }
+
+  static String get logoUrl => '$_host/images/logo.png';
+  static String get storageUrl => '$_host/storage';
+
+  static String get midtransSnapUrl =>
+      dotenv.env['MIDTRANS_SNAP_URL'] ??
       'https://app.sandbox.midtrans.com/snap/snap.js';
-  static const String midtransClientKeySandbox =
-      'SB-Mid-client-NDt_uEVIpouRCEqb';
 
-  static const String googleMapsAndroidApiKey =
-      String.fromEnvironment('MAPS_API_KEY');
+  static String get midtransClientKey =>
+      dotenv.env['MIDTRANS_CLIENT_KEY'] ?? '';
 
-  static const double defaultLat = -0.02633;
-  static const double defaultLng = 109.3425;
+  // Backward-compat alias
+  static String get midtransSnapUrlSandbox => midtransSnapUrl;
+  static String get midtransClientKeySandbox => midtransClientKey;
+
+  static String get googleMapsAndroidApiKey =>
+      dotenv.env['MAPS_API_KEY'] ?? '';
+
+  static double get defaultLat =>
+      double.tryParse(dotenv.env['DEFAULT_LAT'] ?? '') ?? -0.02633;
+
+  static double get defaultLng =>
+      double.tryParse(dotenv.env['DEFAULT_LNG'] ?? '') ?? 109.3425;
+
+  static double get defaultZoom =>
+      double.tryParse(dotenv.env['DEFAULT_ZOOM'] ?? '') ?? 13;
 
   static const String tokenKey = 'auth_token';
   static const String userKey = 'auth_user';

@@ -56,10 +56,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/checkout',
         builder: (_, state) {
           final extra = state.extra as Map<String, dynamic>;
+          final expiresAtStr = extra['payment_expires_at'] as String?;
           return CheckoutScreen(
             snapToken: extra['snap_token'] as String,
             orderNumber: extra['order_number'] as String,
             orderId: extra['order_id'] as int,
+            paymentExpiresAt: expiresAtStr != null ? DateTime.tryParse(expiresAtStr) : null,
+            paymentTimeoutMinutes: extra['payment_timeout_minutes'] as int? ?? 30,
           );
         },
       ),

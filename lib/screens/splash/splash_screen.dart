@@ -20,13 +20,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    _fade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeIn),
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
     );
-    _scale = Tween<double>(begin: 0.8, end: 1).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack),
-    );
+    _fade = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeIn));
+    _scale = Tween<double>(
+      begin: 0.8,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
     _ctrl.forward();
   }
 
@@ -60,15 +65,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 children: [
                   Image.asset('assets/images/logo.png', height: 80),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Evoria',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
-                      fontFamily: 'PlusJakartaSans',
-                    ),
-                  ),
+                  // const Text(
+                  //   'Evoria',
+                  //   style: TextStyle(
+                  //     fontSize: 28,
+                  //     fontWeight: FontWeight.w800,
+                  //     color: AppColors.primary,
+                  //     fontFamily: 'PlusJakartaSans',
+                  //   ),
+                  // ),
                   const SizedBox(height: 6),
                   const Text(
                     'Temukan event terbaik untukmu',

@@ -33,13 +33,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _init() async {
     try {
       final loggedIn = await _repo.isLoggedIn();
-      if (loggedIn) {
-        final user = await _repo.getCachedUser();
-        state = AuthState(status: AuthStatus.authenticated, user: user);
-      } else {
+      if (!loggedIn) {
         state = const AuthState(status: AuthStatus.unauthenticated);
+        return;
       }
+      // Validate token against server — detects expired/revoked tokens
+      final user = await _repo.getProfile();
+      state = AuthState(status: AuthStatus.authenticated, user: user);
     } catch (_) {
+      // Token invalid or server unreachable → force logout
+      await _repo.logout();
       state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }
