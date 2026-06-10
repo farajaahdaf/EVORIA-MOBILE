@@ -84,6 +84,43 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (user != null) state = state.copyWith(user: user);
     } catch (_) {}
   }
+
+  /// Update profile info (name, email) + optional avatar photo.
+  /// Throws on failure so the caller can surface validation messages.
+  Future<void> updateProfile({
+    required String name,
+    required String email,
+    String? photoPath,
+    bool removePhoto = false,
+  }) async {
+    final user = await _repo.updateProfile(
+      name: name,
+      email: email,
+      photoPath: photoPath,
+      removePhoto: removePhoto,
+    );
+    state = state.copyWith(user: user);
+  }
+
+  /// Change the account password. Throws on failure.
+  Future<void> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    await _repo.updatePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+      confirmPassword: confirmPassword,
+    );
+  }
+
+  /// Permanently delete the account, then drop to unauthenticated.
+  /// Throws on failure (e.g. wrong password) so the caller can surface it.
+  Future<void> deleteAccount({required String password}) async {
+    await _repo.deleteAccount(password: password);
+    state = const AuthState(status: AuthStatus.unauthenticated);
+  }
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {

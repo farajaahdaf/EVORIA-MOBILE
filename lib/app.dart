@@ -15,6 +15,7 @@ import 'screens/orders/order_detail_screen.dart';
 import 'screens/orders/e_ticket_screen.dart';
 import 'screens/chatbot/chatbot_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/profile/edit_profile_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
@@ -52,6 +53,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/chatbot', builder: (_, _) => const ChatbotScreen()),
           GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
         ],
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (_, _) => const EditProfileScreen(),
       ),
       GoRoute(
         path: '/events/:id',

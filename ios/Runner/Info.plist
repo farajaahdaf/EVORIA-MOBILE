@@ -6,7 +6,11 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Aplikasi membutuhkan akses lokasi untuk mengurutkan event berdasarkan jarak terdekat dari posisi Anda.</string>
-	<key>CFBundleDevelopmentRegion</key>
+	<key>NSPhotoLibraryUsageDescription</key>
+		<string>Aplikasi membutuhkan akses galeri untuk mengganti foto profil Anda.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>Aplikasi membutuhkan akses kamera untuk mengambil foto profil Anda.</string>
+		<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Evoria Mobile</string>

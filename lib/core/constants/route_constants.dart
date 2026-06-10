@@ -10,4 +10,5 @@ class Routes {
   static const eTicket = '/eticket/:id';
   static const chatbot = '/chatbot';
   static const profile = '/profile';
+  static const profileEdit = '/profile/edit';
 }

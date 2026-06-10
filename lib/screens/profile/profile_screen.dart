@@ -15,7 +15,17 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const EvoriaAppBar(title: 'Profil'),
+      appBar: EvoriaAppBar(
+        title: 'Profil',
+        actions: [
+          IconButton(
+            onPressed: () => context.push('/profile/edit'),
+            icon: const Icon(Icons.edit_outlined,
+                size: 22, color: AppColors.textPrimary),
+            tooltip: 'Edit Profil',
+          ),
+        ],
+      ),
       body: user == null
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -83,31 +93,10 @@ class ProfileScreen extends ConsumerWidget {
       child: Column(
         children: [
           _menuItem(
-            icon: Icons.confirmation_number_outlined,
-            title: 'Tiket Saya',
-            subtitle: 'Lihat semua tiket & riwayat order',
-            onTap: () => context.go('/orders'),
-          ),
-          const Divider(height: 1, indent: 56),
-          _menuItem(
-            icon: Icons.smart_toy_outlined,
-            title: 'Evoria AI',
-            subtitle: 'Tanya rekomendasi event ke AI',
-            onTap: () => context.go('/chatbot'),
-          ),
-          const Divider(height: 1, indent: 56),
-          _menuItem(
-            icon: Icons.language_outlined,
-            title: 'Buka Website',
-            subtitle: 'evoria.life',
-            onTap: () {},
-          ),
-          const Divider(height: 1, indent: 56),
-          _menuItem(
-            icon: Icons.help_outline,
-            title: 'Bantuan',
-            subtitle: 'FAQ dan panduan penggunaan',
-            onTap: () {},
+            icon: Icons.manage_accounts_outlined,
+            title: 'Edit Profil',
+            subtitle: 'Ubah nama, email, foto & password',
+            onTap: () => context.push('/profile/edit'),
           ),
           const Divider(height: 1),
           _menuItem(
