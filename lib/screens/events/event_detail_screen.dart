@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/utils/format_utils.dart';
 import '../../models/event_model.dart';
 import '../../models/ticket_model.dart';
@@ -70,10 +71,26 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             quantity: _quantity,
           );
 
+      // Notifikasi setiap pembelian — dipicu saat order dibuat, tidak
+      // menunggu hasil pembayaran (berlaku untuk tiket gratis & berbayar).
+      await NotificationService.instance.showOrderPlaced(
+        eventTitle: event.title,
+        orderKey: result.orderNumber,
+        isFree: result.isFree,
+      );
+
       if (!mounted) return;
 
       if (result.isFree) {
         ref.invalidate(ordersProvider);
+        await NotificationService.instance.scheduleEventReminders(
+          ReminderEvent(
+            eventId: event.id,
+            title: event.title,
+            start: event.startTime,
+          ),
+        );
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result.message), backgroundColor: AppColors.success),
         );
@@ -163,9 +180,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             ? CachedNetworkImage(
                 imageUrl: event.bannerUrl,
                 fit: BoxFit.cover,
-                placeholder: (_, __) =>
+                placeholder: (_, _) =>
                     Container(color: AppColors.primaryLight),
-                errorWidget: (_, __, ___) =>
+                errorWidget: (_, _, _) =>
                     Container(color: AppColors.primaryLight,
                       child: const Center(child: Icon(Icons.event, size: 60, color: AppColors.primary)),
                     ),
@@ -182,7 +199,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         icon: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             shape: BoxShape.circle,
           ),
           child: const Icon(Icons.arrow_back_ios_new, size: 18),
@@ -379,7 +396,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 const SizedBox(width: 6),
                 AnimatedBuilder(
                   animation: _highlightAnim,
-                  builder: (_, __) => _highlightAnim.value > 0
+                  builder: (_, _) => _highlightAnim.value > 0
                       ? Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),

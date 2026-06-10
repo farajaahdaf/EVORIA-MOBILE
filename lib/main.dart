@@ -14,15 +14,22 @@ void main() async {
 
   await dotenv.load(fileName: '.env');
 
-  // Firebase: akan skip jika firebase_options.dart belum dikonfigurasi
+  // Notifikasi lokal (booking sukses + reminder event) tidak butuh Firebase.
+  try {
+    await NotificationService.instance.initialize();
+  } catch (_) {
+    // Abaikan — fitur notifikasi lokal nonaktif jika gagal inisialisasi.
+  }
+
+  // FCM: skip jika firebase_options.dart belum dikonfigurasi.
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    await NotificationService.instance.initialize();
+    NotificationService.instance.attachFirebaseMessaging();
   } catch (_) {
-    // Firebase belum dikonfigurasi, notifikasi dinonaktifkan
+    // Firebase belum dikonfigurasi, push notif (FCM) dinonaktifkan.
   }
 
   await initializeDateFormatting('id_ID', null);

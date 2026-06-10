@@ -90,8 +90,8 @@ class EventCard extends StatelessWidget {
             ? CachedNetworkImage(
                 imageUrl: event.bannerUrl,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: AppColors.border),
-                errorWidget: (_, __, ___) => _bannerPlaceholder(),
+                placeholder: (_, _) => Container(color: AppColors.border),
+                errorWidget: (_, _, _) => _bannerPlaceholder(),
               )
             : _bannerPlaceholder(),
       ),
@@ -179,7 +179,7 @@ class EventCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: AppColors.error.withOpacity(0.1),
+              color: AppColors.error.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: const Text(

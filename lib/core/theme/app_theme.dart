@@ -25,7 +25,6 @@ class AppTheme {
           seedColor: AppColors.primary,
           primary: AppColors.primary,
           surface: AppColors.surface,
-          background: AppColors.background,
         ),
         scaffoldBackgroundColor: AppColors.background,
         appBarTheme: const AppBarTheme(

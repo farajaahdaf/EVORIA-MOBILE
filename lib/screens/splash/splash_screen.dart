@@ -56,7 +56,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       body: Center(
         child: AnimatedBuilder(
           animation: _ctrl,
-          builder: (_, __) => FadeTransition(
+          builder: (_, _) => FadeTransition(
             opacity: _fade,
             child: ScaleTransition(
               scale: _scale,

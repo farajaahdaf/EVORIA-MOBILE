@@ -426,7 +426,7 @@ class _EventChip extends StatelessWidget {
                   ? CachedNetworkImage(
                       imageUrl: event.bannerUrl!,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => _placeholderBanner(),
+                      errorWidget: (_, _, _) => _placeholderBanner(),
                     )
                   : _placeholderBanner(),
             ),

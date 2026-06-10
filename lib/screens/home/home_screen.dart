@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../core/services/location_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/event_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/events_provider.dart';
 import '../../repositories/event_repository.dart';
+import '../../repositories/order_repository.dart';
 import '../../widgets/event_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -26,6 +28,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _userAddress;
   bool _loadingLocation = false;
   final List<double> _priceOptions = [0, 50000, 100000, 200000, 500000];
+
+  // Cukup sekali per sesi app: jadwalkan ulang reminder dari order yang dibayar.
+  static bool _remindersReconciled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _reconcileReminders();
+  }
+
+  /// Ambil order yang sudah dibayar lalu jadwalkan ulang semua reminder event
+  /// mendatang. Membuat reminder tetap konsisten setelah app/device restart.
+  Future<void> _reconcileReminders() async {
+    if (_remindersReconciled) return;
+    _remindersReconciled = true;
+    try {
+      final orders = await ref.read(orderRepositoryProvider).getOrders();
+      final now = DateTime.now();
+      final events = <int, ReminderEvent>{};
+      for (final order in orders) {
+        if (!order.isPaid) continue;
+        for (final item in order.orderItems) {
+          final ev = item.ticket?.event;
+          if (ev?.startTime != null && ev!.startTime!.isAfter(now)) {
+            events[ev.id] = ReminderEvent(
+              eventId: ev.id,
+              title: ev.title,
+              start: ev.startTime,
+            );
+          }
+        }
+      }
+      await NotificationService.instance.syncEventReminders(
+        events.values.toList(),
+      );
+    } catch (_) {
+      // Abaikan — reminder akan dicoba lagi saat app dibuka berikutnya.
+      _remindersReconciled = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -124,7 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: categoriesAsync.when(
               data: (cats) => _buildCategoryFilter(cats.map((c) => (c.id, c.name)).toList()),
               loading: () => const SizedBox(height: 52),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
             ),
           ),
           SliverToBoxAdapter(child: _buildActiveFilters()),
@@ -259,7 +301,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemCount: categories.length + 1,
         itemBuilder: (_, i) {
           if (i == 0) {
@@ -310,7 +352,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [

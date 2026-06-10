@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/notification_service.dart';
+import '../../models/order_model.dart';
 import '../../repositories/order_repository.dart';
 import '../../providers/orders_provider.dart';
 
@@ -182,10 +184,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (url.contains('status=success')) {
       message = 'Pembayaran berhasil! Tiket kamu sudah tersedia.';
       success = true;
-      // Sync final status
+      // Sync final status + jadwalkan notifikasi/reminder
       try {
-        await ref.read(orderRepositoryProvider).syncOrderStatus(widget.orderId);
+        final order = await ref
+            .read(orderRepositoryProvider)
+            .syncOrderStatus(widget.orderId);
         ref.invalidate(ordersProvider);
+        await _notifyAndScheduleReminders(order);
       } catch (_) {}
     } else if (url.contains('status=pending')) {
       // User memilih metode bayar (transfer dll) — order pending sah, jangan cancel.
@@ -219,6 +224,31 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ),
     );
     context.go('/orders');
+  }
+
+  /// Tampilkan notifikasi "pembayaran berhasil" dan jadwalkan reminder
+  /// 24 jam & 3 jam sebelum tiap event di dalam order ini.
+  Future<void> _notifyAndScheduleReminders(OrderModel order) async {
+    final events = <int, ReminderEvent>{};
+    for (final item in order.orderItems) {
+      final ev = item.ticket?.event;
+      if (ev != null) {
+        events[ev.id] = ReminderEvent(
+          eventId: ev.id,
+          title: ev.title,
+          start: ev.startTime,
+        );
+      }
+    }
+    if (events.isEmpty) return;
+
+    await NotificationService.instance.showPaymentSuccess(
+      eventTitle: events.values.first.title,
+      orderKey: order.orderNumber,
+    );
+    for (final e in events.values) {
+      await NotificationService.instance.scheduleEventReminders(e);
+    }
   }
 
   @override

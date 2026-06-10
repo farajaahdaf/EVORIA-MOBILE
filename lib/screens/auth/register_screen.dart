@@ -71,9 +71,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.error.withOpacity(0.08),
+                      color: AppColors.error.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -116,8 +116,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Email tidak boleh kosong';
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v))
+                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v)) {
                       return 'Format email tidak valid';
+                    }
                     return null;
                   },
                 ),
