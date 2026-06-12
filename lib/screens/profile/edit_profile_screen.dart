@@ -237,10 +237,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         children: [
           Stack(
             children: [
-              CircleAvatar(
-                radius: 50,
-                backgroundColor: AppColors.border,
-                backgroundImage: avatarImage,
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(
+                  gradient: AppGradients.brand,
+                  shape: BoxShape.circle,
+                ),
+                child: CircleAvatar(
+                  radius: 48,
+                  backgroundColor: AppColors.surface,
+                  child: CircleAvatar(
+                    radius: 45,
+                    backgroundColor: AppColors.border,
+                    backgroundImage: avatarImage,
+                  ),
+                ),
               ),
               Positioned(
                 right: 0,
@@ -250,9 +261,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      gradient: AppGradients.brand,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.surface, width: 2),
+                      border: Border.all(color: AppColors.surface, width: 2.5),
                     ),
                     child: const Icon(Icons.camera_alt,
                         size: 16, color: Colors.white),
@@ -471,10 +482,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        borderRadius: AppRadius.rXl,
+        boxShadow: AppShadows.soft,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

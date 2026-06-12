@@ -173,31 +173,101 @@ class _MainShellState extends State<MainShell> {
       },
       child: Scaffold(
         body: widget.child,
-        bottomNavigationBar: BottomNavigationBar(
+        bottomNavigationBar: _EvoriaBottomNav(
           currentIndex: widget.currentIndex,
           onTap: (i) => context.go(MainShell.routes[i]),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Beranda',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.confirmation_number_outlined),
-              activeIcon: Icon(Icons.confirmation_number),
-              label: 'Tiket',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.smart_toy_outlined),
-              activeIcon: Icon(Icons.smart_toy),
-              label: 'AI',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profil',
-            ),
-          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavSpec {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  const _NavSpec(this.icon, this.activeIcon, this.label);
+}
+
+class _EvoriaBottomNav extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  const _EvoriaBottomNav({required this.currentIndex, required this.onTap});
+
+  static const _items = [
+    _NavSpec(Icons.home_outlined, Icons.home_rounded, 'Beranda'),
+    _NavSpec(Icons.confirmation_number_outlined,
+        Icons.confirmation_number_rounded, 'Tiket'),
+    _NavSpec(Icons.auto_awesome_outlined, Icons.auto_awesome_rounded, 'AI'),
+    _NavSpec(Icons.person_outline_rounded, Icons.person_rounded, 'Profil'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x141B2A4A),
+            blurRadius: 20,
+            offset: Offset(0, -6),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: List.generate(_items.length, (i) {
+              final spec = _items[i];
+              final active = i == currentIndex;
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onTap(i),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOut,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 5),
+                        decoration: BoxDecoration(
+                          gradient: active ? AppGradients.brand : null,
+                          borderRadius:
+                              const BorderRadius.all(Radius.circular(999)),
+                          boxShadow: active
+                              ? AppShadows.glow(AppColors.primary,
+                                  opacity: 0.28)
+                              : null,
+                        ),
+                        child: Icon(
+                          active ? spec.activeIcon : spec.icon,
+                          size: 22,
+                          color: active ? Colors.white : AppColors.textLight,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        spec.label,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight:
+                              active ? FontWeight.w700 : FontWeight.w600,
+                          color: active
+                              ? AppColors.primary
+                              : AppColors.textLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
         ),
       ),
     );

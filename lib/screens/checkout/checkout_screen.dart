@@ -257,35 +257,48 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Pembayaran', style: TextStyle(fontSize: 16)),
-            // ── countdown row ──
-            Row(
-              children: [
-                Icon(
-                  _expired ? Icons.timer_off_rounded : Icons.timer_rounded,
-                  size: 13,
-                  color: _expired ? AppColors.error : _countdownColor(),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _expired
-                      ? 'Waktu habis'
-                      : 'Bayar dalam ${_formatRemaining()}',
-                  style: TextStyle(
-                    fontSize: 12,
+        surfaceTintColor: Colors.transparent,
+        titleSpacing: 0,
+        title: const Text('Pembayaran',
+            style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3)),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: (_expired ? AppColors.error : _countdownColor())
+                    .withValues(alpha: 0.12),
+                borderRadius: const BorderRadius.all(Radius.circular(999)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _expired ? Icons.timer_off_rounded : Icons.timer_rounded,
+                    size: 14,
                     color: _expired ? AppColors.error : _countdownColor(),
-                    fontWeight: FontWeight.w600,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 5),
+                  Text(
+                    _expired ? 'Waktu habis' : _formatRemaining(),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _expired ? AppColors.error : _countdownColor(),
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.close_rounded),
           onPressed: () {
             showDialog(
               context: context,

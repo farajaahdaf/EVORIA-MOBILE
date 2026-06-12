@@ -120,15 +120,16 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
         children: [
           const SizedBox(height: 32),
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              color: AppColors.primaryLight,
+              gradient: AppGradients.brand,
               shape: BoxShape.circle,
+              boxShadow: AppShadows.glow(AppColors.primary, opacity: 0.35),
             ),
             child: const Icon(
-              Icons.smart_toy,
-              size: 48,
-              color: AppColors.primary,
+              Icons.auto_awesome_rounded,
+              size: 44,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 20),
@@ -166,16 +167,25 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 12,
+                  vertical: 13,
                 ),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  borderRadius: AppRadius.rMd,
+                  boxShadow: AppShadows.soft,
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.send, size: 16, color: AppColors.primary),
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: const BoxDecoration(
+                        gradient: AppGradients.brand,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_outward_rounded,
+                          size: 14, color: Colors.white),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -258,8 +268,12 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: loading ? AppColors.border : AppColors.primary,
+                gradient: loading ? null : AppGradients.brand,
+                color: loading ? AppColors.borderStrong : null,
                 shape: BoxShape.circle,
+                boxShadow: loading
+                    ? null
+                    : AppShadows.glow(AppColors.primary, opacity: 0.3),
               ),
               child: loading
                   ? const Padding(
@@ -306,10 +320,11 @@ class _ChatBubble extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: const BoxDecoration(
-                    color: AppColors.primary,
+                    gradient: AppGradients.brand,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.smart_toy, size: 18, color: Colors.white),
+                  child: const Icon(Icons.auto_awesome_rounded,
+                      size: 17, color: Colors.white),
                 ),
                 const SizedBox(width: 8),
               ],
@@ -317,7 +332,8 @@ class _ChatBubble extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: message.isUser ? AppColors.primary : AppColors.surface,
+                    gradient: message.isUser ? AppGradients.brand : null,
+                    color: message.isUser ? null : AppColors.surface,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
@@ -328,9 +344,7 @@ class _ChatBubble extends StatelessWidget {
                           ? const Radius.circular(4)
                           : const Radius.circular(16),
                     ),
-                    border: message.isUser
-                        ? null
-                        : Border.all(color: AppColors.border),
+                    boxShadow: AppShadows.soft,
                   ),
                   child: message.isUser
                       ? Text(
@@ -559,10 +573,11 @@ class _TypingIndicatorState extends State<_TypingIndicator>
             width: 32,
             height: 32,
             decoration: const BoxDecoration(
-              color: AppColors.primary,
+              gradient: AppGradients.brand,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.smart_toy, size: 18, color: Colors.white),
+            child: const Icon(Icons.auto_awesome_rounded,
+                size: 17, color: Colors.white),
           ),
           const SizedBox(width: 8),
           Container(

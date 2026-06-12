@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
@@ -22,16 +23,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 900),
     );
-    _fade = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeIn));
-    _scale = Tween<double>(
-      begin: 0.8,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
+    _fade = Tween<double>(begin: 0, end: 1)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeIn));
+    _scale = Tween<double>(begin: 0.82, end: 1)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
     _ctrl.forward();
   }
 
@@ -51,44 +48,90 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: Center(
-        child: AnimatedBuilder(
-          animation: _ctrl,
-          builder: (_, _) => FadeTransition(
-            opacity: _fade,
-            child: ScaleTransition(
-              scale: _scale,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset('assets/images/logo.png', height: 80),
-                  const SizedBox(height: 16),
-                  // const Text(
-                  //   'Evoria',
-                  //   style: TextStyle(
-                  //     fontSize: 28,
-                  //     fontWeight: FontWeight.w800,
-                  //     color: AppColors.primary,
-                  //     fontFamily: 'PlusJakartaSans',
-                  //   ),
-                  // ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Temukan event terbaik untukmu',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                      fontFamily: 'PlusJakartaSans',
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(gradient: AppGradients.brand),
+          width: double.infinity,
+          child: Stack(
+            children: [
+              // Soft decorative glows.
+              Positioned(
+                top: -80,
+                right: -60,
+                child: _glow(220, Colors.white.withValues(alpha: 0.12)),
+              ),
+              Positioned(
+                bottom: -100,
+                left: -70,
+                child: _glow(260, Colors.white.withValues(alpha: 0.10)),
+              ),
+              Center(
+                child: AnimatedBuilder(
+                  animation: _ctrl,
+                  builder: (_, _) => FadeTransition(
+                    opacity: _fade,
+                    child: ScaleTransition(
+                      scale: _scale,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 28, vertical: 22),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: AppRadius.rXl,
+                              boxShadow: AppShadows.elevated,
+                            ),
+                            child: Image.asset('assets/images/logo.png',
+                                height: 56),
+                          ),
+                          Gap.h24,
+                          Text(
+                            'Temukan event terbaik untukmu',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.92),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+              Positioned(
+                bottom: 56,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      valueColor:
+                          AlwaysStoppedAnimation(Colors.white.withValues(alpha: 0.9)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  Widget _glow(double size, Color color) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
+        ),
+      );
 }

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/evoria_app_bar.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -15,71 +14,120 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: EvoriaAppBar(
-        title: 'Profil',
-        actions: [
-          IconButton(
-            onPressed: () => context.push('/profile/edit'),
-            icon: const Icon(Icons.edit_outlined,
-                size: 22, color: AppColors.textPrimary),
-            tooltip: 'Edit Profil',
-          ),
-        ],
-      ),
       body: user == null
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 100),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildProfileHeader(user.name, user.email, user.avatarUrl),
-                  const SizedBox(height: 16),
-                  _buildMenuSection(context, ref),
+                  _buildHeader(context, user.name, user.email, user.avatarUrl),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 24, 16, 10),
+                    child: Text('Akun',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textLight,
+                          letterSpacing: 0.3,
+                        )),
+                  ),
+                  _buildMenuCard(context, ref),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildProfileHeader(String name, String email, String avatarUrl) {
+  Widget _buildHeader(
+      BuildContext context, String name, String email, String avatarUrl) {
     return Container(
       width: double.infinity,
-      color: AppColors.surface,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(20, 64, 20, 28),
+      decoration: const BoxDecoration(
+        gradient: AppGradients.brand,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+        boxShadow: AppShadows.card,
+      ),
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 44,
-            backgroundColor: AppColors.border,
-            backgroundImage: CachedNetworkImageProvider(avatarUrl),
+          Row(
+            children: [
+              const Text(
+                'Profil',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => context.push('/profile/edit'),
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.edit_rounded,
+                      size: 18, color: Colors.white),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
+          Gap.h20,
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 44,
+              backgroundColor: Colors.white24,
+              backgroundImage: CachedNetworkImageProvider(avatarUrl),
+            ),
+          ),
+          Gap.h16,
           Text(
             name,
             style: const TextStyle(
-              fontSize: 20,
+              fontSize: 21,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              color: Colors.white,
+              letterSpacing: -0.3,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             email,
-            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            style: TextStyle(
+                fontSize: 13.5, color: Colors.white.withValues(alpha: 0.85)),
           ),
-          const SizedBox(height: 12),
+          Gap.h12,
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(20),
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: const BorderRadius.all(Radius.circular(999)),
             ),
-            child: const Text(
-              'Attendee',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary,
-              ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.verified_rounded, size: 14, color: Colors.white),
+                SizedBox(width: 5),
+                Text(
+                  'Attendee',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -87,20 +135,33 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMenuSection(BuildContext context, WidgetRef ref) {
+  Widget _buildMenuCard(BuildContext context, WidgetRef ref) {
     return Container(
-      color: AppColors.surface,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.rXl,
+        boxShadow: AppShadows.soft,
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           _menuItem(
-            icon: Icons.manage_accounts_outlined,
+            icon: Icons.manage_accounts_rounded,
             title: 'Edit Profil',
             subtitle: 'Ubah nama, email, foto & password',
             onTap: () => context.push('/profile/edit'),
           ),
-          const Divider(height: 1),
+          const Divider(height: 1, indent: 72),
           _menuItem(
-            icon: Icons.logout,
+            icon: Icons.confirmation_number_rounded,
+            title: 'Tiket Saya',
+            subtitle: 'Lihat semua tiket & pesanan',
+            onTap: () => context.go('/orders'),
+          ),
+          const Divider(height: 1, indent: 72),
+          _menuItem(
+            icon: Icons.logout_rounded,
             title: 'Keluar',
             subtitle: 'Logout dari akun ini',
             iconColor: AppColors.error,
@@ -120,25 +181,23 @@ class ProfileScreen extends ConsumerWidget {
     Color? iconColor,
     Color? titleColor,
   }) {
+    final isDanger = iconColor != null;
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       leading: Container(
-        width: 40,
-        height: 40,
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
-          color: (iconColor ?? AppColors.primary).withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
+          gradient: isDanger ? null : AppGradients.brand,
+          color: isDanger ? AppColors.errorSoft : null,
+          borderRadius: AppRadius.rMd,
         ),
-        child: Icon(
-          icon,
-          size: 22,
-          color: iconColor ?? AppColors.primary,
-        ),
+        child: Icon(icon, size: 21, color: iconColor ?? Colors.white),
       ),
       title: Text(
         title,
         style: TextStyle(
-          fontSize: 14,
+          fontSize: 14.5,
           fontWeight: FontWeight.w700,
           color: titleColor ?? AppColors.textPrimary,
         ),
@@ -147,8 +206,8 @@ class ProfileScreen extends ConsumerWidget {
         subtitle,
         style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
       ),
-      trailing: const Icon(Icons.chevron_right,
-          size: 20, color: AppColors.textLight),
+      trailing: const Icon(Icons.chevron_right_rounded,
+          size: 22, color: AppColors.textLight),
       onTap: onTap,
     );
   }
@@ -162,7 +221,8 @@ class ProfileScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Batal'),
+            child: const Text('Batal',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
             onPressed: () async {
@@ -170,8 +230,7 @@ class ProfileScreen extends ConsumerWidget {
               await ref.read(authProvider.notifier).logout();
               if (context.mounted) context.go('/login');
             },
-            child: const Text('Keluar',
-                style: TextStyle(color: AppColors.error)),
+            child: const Text('Keluar', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),

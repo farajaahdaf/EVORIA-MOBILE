@@ -136,18 +136,12 @@ class _OrderCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push('/orders/${order.id}'),
       child: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.07),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          borderRadius: AppRadius.rLg,
+          boxShadow: AppShadows.card,
         ),
-        clipBehavior: Clip.hardEdge,
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -310,23 +304,32 @@ class _OrderCard extends StatelessWidget {
 
                   // Pending: pay button
                   if (order.isPending) ...[
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () =>
-                            context.push('/orders/${order.id}'),
-                        icon: const Icon(Icons.payment_rounded, size: 16),
-                        label: const Text('Selesaikan Pembayaran'),
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 40),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () => context.push('/orders/${order.id}'),
+                      child: Container(
+                        height: 44,
+                        width: double.infinity,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          gradient: AppGradients.brand,
+                          borderRadius: AppRadius.rMd,
+                          boxShadow:
+                              AppShadows.glow(AppColors.primary, opacity: 0.28),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.payment_rounded,
+                                size: 16, color: Colors.white),
+                            SizedBox(width: 6),
+                            Text('Selesaikan Pembayaran',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                )),
+                          ],
                         ),
                       ),
                     ),

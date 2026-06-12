@@ -4,12 +4,16 @@ import 'package:geolocator/geolocator.dart';
 import '../../core/services/location_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/format_utils.dart';
 import '../../models/event_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/events_provider.dart';
 import '../../repositories/event_repository.dart';
 import '../../repositories/order_repository.dart';
+import '../../widgets/category_selector.dart';
 import '../../widgets/event_card.dart';
+import '../../widgets/featured_carousel.dart';
+import '../../widgets/section_header.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -149,6 +153,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return withDist.map((p) => p.event).toList();
   }
 
+  bool get _hasActiveFilter =>
+      _selectedCity != null || _maxPrice != null || _sortByNearest;
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
@@ -156,81 +163,154 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final filter = ref.watch(activeFilterProvider);
     final eventsAsync = ref.watch(eventsProvider(filter));
 
+    final isSearching = (filter.search ?? '').isNotEmpty;
+    final showHero = !isSearching &&
+        _selectedCategoryId == null &&
+        !_hasActiveFilter;
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          _buildAppBar(user?.name),
-          SliverToBoxAdapter(child: _buildSearchBar()),
-          SliverToBoxAdapter(
-            child: categoriesAsync.when(
-              data: (cats) => _buildCategoryFilter(cats.map((c) => (c.id, c.name)).toList()),
-              loading: () => const SizedBox(height: 52),
-              error: (_, _) => const SizedBox.shrink(),
-            ),
-          ),
-          SliverToBoxAdapter(child: _buildActiveFilters()),
-          SliverToBoxAdapter(child: _buildUserLocationBar()),
-          eventsAsync.when(
-            data: (result) => _buildEventGrid(_sortedEvents(result.data)),
-            loading: () => const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(40),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            ),
-            error: (e, _) => SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(40),
-                child: Center(
-                  child: Column(
-                    children: [
-                      const Icon(Icons.wifi_off, size: 48, color: AppColors.textLight),
-                      const SizedBox(height: 12),
-                      Text(e.toString(),
-                          style: const TextStyle(color: AppColors.textSecondary),
-                          textAlign: TextAlign.center),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: () => ref.invalidate(eventsProvider),
-                        style: OutlinedButton.styleFrom(minimumSize: const Size(120, 40)),
-                        child: const Text('Coba lagi'),
-                      ),
-                    ],
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async => ref.invalidate(eventsProvider),
+        child: CustomScrollView(
+          slivers: [
+            _buildAppBar(user?.name),
+            SliverToBoxAdapter(child: _buildSearchBar()),
+            SliverToBoxAdapter(
+              child: categoriesAsync.when(
+                data: (cats) => Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 4),
+                  child: CategorySelector(
+                    categories: cats.map((c) => (c.id, c.name)).toList(),
+                    selectedId: _selectedCategoryId,
+                    onSelect: (id) {
+                      setState(() => _selectedCategoryId = id);
+                      _applyFilter();
+                    },
                   ),
                 ),
+                loading: () => const SizedBox(height: 92),
+                error: (_, _) => const SizedBox.shrink(),
               ),
             ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 80)),
-        ],
+            SliverToBoxAdapter(child: _buildActiveFilters()),
+            SliverToBoxAdapter(child: _buildUserLocationBar()),
+            eventsAsync.when(
+              data: (result) {
+                final events = _sortedEvents(result.data);
+                return SliverMainAxisGroup(
+                  slivers: [
+                    if (showHero && events.isNotEmpty) ...[
+                      const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                      SliverToBoxAdapter(
+                        child: FeaturedCarousel(events: events),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                    ],
+                    SliverToBoxAdapter(
+                      child: SectionHeader(
+                        title: isSearching ? 'Hasil Pencarian' : 'Jelajahi Event',
+                        actionLabel: isSearching ? 'Reset' : null,
+                        onAction: isSearching
+                            ? () {
+                                _searchCtrl.clear();
+                                _applyFilter();
+                              }
+                            : null,
+                      ),
+                    ),
+                    _buildEventGrid(events),
+                  ],
+                );
+              },
+              loading: () => const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(60),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+              error: (e, _) => SliverToBoxAdapter(child: _buildError(e)),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 90)),
+          ],
+        ),
       ),
     );
   }
 
+  Widget _buildError(Object e) => Padding(
+        padding: const EdgeInsets.all(40),
+        child: Center(
+          child: Column(
+            children: [
+              const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textLight),
+              Gap.h12,
+              Text(e.toString(),
+                  style: const TextStyle(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center),
+              Gap.h12,
+              OutlinedButton(
+                onPressed: () => ref.invalidate(eventsProvider),
+                style: OutlinedButton.styleFrom(minimumSize: const Size(140, 44)),
+                child: const Text('Coba lagi'),
+              ),
+            ],
+          ),
+        ),
+      );
+
   Widget _buildAppBar(String? name) {
     return SliverAppBar(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
+      surfaceTintColor: Colors.transparent,
       floating: true,
       snap: true,
       elevation: 0,
-      scrolledUnderElevation: 1,
-      shadowColor: AppColors.border,
-      bottom: const PreferredSize(
-        preferredSize: Size.fromHeight(1),
-        child: Divider(height: 1, color: AppColors.border),
-      ),
+      toolbarHeight: 64,
+      titleSpacing: 16,
       title: Row(
         children: [
-          Image.asset('assets/images/logo.png', height: 32),
+          Image.asset('assets/images/logo.png', height: 30),
           const Spacer(),
           if (name != null)
-            Text(
-              'Hai, ${name.split(' ').first}!',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+            Container(
+              padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: AppRadius.rXl,
+                boxShadow: AppShadows.soft,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(
+                      gradient: AppGradients.brand,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  Gap.w8,
+                  Text(
+                    'Hai, ${name.split(' ').first}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
@@ -239,105 +319,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: _searchCtrl,
-              onSubmitted: (_) => _applyFilter(),
-              decoration: InputDecoration(
-                hintText: 'Cari event, artis, lokasi...',
-                prefixIcon: const Icon(Icons.search, color: AppColors.textLight),
-                suffixIcon: _searchCtrl.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          _applyFilter();
-                        },
-                      )
-                    : null,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: AppRadius.rMd,
+                boxShadow: AppShadows.soft,
+              ),
+              child: TextField(
+                controller: _searchCtrl,
+                onSubmitted: (_) => _applyFilter(),
+                onChanged: (_) => setState(() {}),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Cari event, artis, lokasi...',
+                  filled: true,
+                  fillColor: Colors.transparent,
+                  prefixIcon:
+                      const Icon(Icons.search_rounded, color: AppColors.textLight),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          color: AppColors.textLight,
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _applyFilter();
+                            setState(() {});
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: AppRadius.rMd,
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: AppRadius.rMd,
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          Gap.w12,
           GestureDetector(
             onTap: _showFilterSheet,
             child: Container(
-              height: 48,
-              width: 48,
+              height: 52,
+              width: 52,
               decoration: BoxDecoration(
-                color: (_selectedCity != null ||
-                        _maxPrice != null ||
-                        _sortByNearest)
-                    ? AppColors.primary
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
+                gradient: _hasActiveFilter ? AppGradients.brand : null,
+                color: _hasActiveFilter ? null : AppColors.surface,
+                borderRadius: AppRadius.rMd,
+                boxShadow: _hasActiveFilter
+                    ? AppShadows.glow(AppColors.primary, opacity: 0.3)
+                    : AppShadows.soft,
               ),
               child: Icon(
-                Icons.tune,
-                color: (_selectedCity != null ||
-                        _maxPrice != null ||
-                        _sortByNearest)
-                    ? Colors.white
-                    : AppColors.textSecondary,
+                Icons.tune_rounded,
+                color: _hasActiveFilter ? Colors.white : AppColors.textSecondary,
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryFilter(List<(int, String)> categories) {
-    return Container(
-      color: AppColors.surface,
-      height: 52,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemCount: categories.length + 1,
-        itemBuilder: (_, i) {
-          if (i == 0) {
-            final selected = _selectedCategoryId == null;
-            return _buildCategoryChip(null, 'Semua', selected);
-          }
-          final (id, name) = categories[i - 1];
-          return _buildCategoryChip(id, name, _selectedCategoryId == id);
-        },
-      ),
-    );
-  }
-
-  Widget _buildCategoryChip(int? id, String label, bool selected) {
-    return GestureDetector(
-      onTap: () {
-        setState(() => _selectedCategoryId = selected ? null : id);
-        _applyFilter();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? AppColors.primary : AppColors.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : AppColors.textSecondary,
-          ),
-        ),
       ),
     );
   }
@@ -347,27 +400,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final label = _userAddress ??
         '${_userPosition!.latitude.toStringAsFixed(4)}, ${_userPosition!.longitude.toStringAsFixed(4)}';
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        borderRadius: AppRadius.rMd,
       ),
       child: Row(
         children: [
-          const Icon(Icons.my_location, size: 16, color: AppColors.primary),
-          const SizedBox(width: 8),
+          const Icon(Icons.my_location_rounded, size: 16, color: AppColors.primary),
+          Gap.w8,
           Expanded(
             child: RichText(
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               text: TextSpan(
-                style: const TextStyle(fontSize: 12, color: AppColors.primary),
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.primary,
+                    fontFamily: 'PlusJakartaSans'),
                 children: [
                   const TextSpan(
                     text: 'Lokasi Anda: ',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   TextSpan(text: label),
                 ],
@@ -376,7 +431,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           GestureDetector(
             onTap: _loadingLocation ? null : _enableNearestSort,
-            child: const Icon(Icons.refresh, size: 16, color: AppColors.primary),
+            child: const Icon(Icons.refresh_rounded, size: 16, color: AppColors.primary),
           ),
         ],
       ),
@@ -387,23 +442,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final filters = <String>[];
     if (_selectedCity != null) filters.add('Kota: $_selectedCity');
     if (_maxPrice != null) {
-      filters.add(_maxPrice == 0 ? 'Gratis' : 'Max: Rp ${_maxPrice!.toInt()}');
+      filters.add(_maxPrice == 0 ? 'Gratis' : 'Max: ${formatRupiah(_maxPrice!)}');
     }
     if (_sortByNearest) filters.add('Terdekat dari saya');
     if (filters.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
       child: Wrap(
         spacing: 8,
+        runSpacing: 8,
         children: [
           ...filters.map(
             (f) => Chip(
               label: Text(f,
-                  style: const TextStyle(fontSize: 12, color: AppColors.primary)),
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary)),
               backgroundColor: AppColors.primaryLight,
-              deleteIcon: const Icon(Icons.close, size: 14, color: AppColors.primary),
+              side: BorderSide.none,
+              deleteIcon:
+                  const Icon(Icons.close_rounded, size: 14, color: AppColors.primary),
               onDeleted: () {
                 setState(() {
                   if (f.startsWith('Kota')) _selectedCity = null;
@@ -417,7 +477,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _applyFilter();
               },
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
               visualDensity: VisualDensity.compact,
             ),
           ),
@@ -428,25 +488,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildEventGrid(List<EventModel> events) {
     if (events.isEmpty) {
-      return const SliverToBoxAdapter(
+      return SliverToBoxAdapter(
         child: Padding(
-          padding: EdgeInsets.all(48),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
           child: Column(
             children: [
-              Icon(Icons.event_busy, size: 56, color: AppColors.textLight),
-              SizedBox(height: 12),
-              Text(
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryLight,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.event_busy_rounded,
+                    size: 48, color: AppColors.primary),
+              ),
+              Gap.h16,
+              const Text(
                 'Tidak ada event ditemukan',
                 style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              SizedBox(height: 4),
-              Text(
+              Gap.h4,
+              const Text(
                 'Coba ubah filter atau kata pencarian',
-                style: TextStyle(color: AppColors.textLight, fontSize: 13),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
             ],
           ),
@@ -455,13 +523,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          childAspectRatio: _sortByNearest ? 0.58 : 0.65,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
+          childAspectRatio: _sortByNearest ? 0.60 : 0.66,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
         ),
         delegate: SliverChildBuilderDelegate(
           (_, i) {
@@ -500,23 +568,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         builder: (ctx, setSheetState) => Container(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            top: 24,
+            top: 12,
             left: 24,
             right: 24,
           ),
           decoration: const BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.borderStrong,
+                    borderRadius: AppRadius.rSm,
+                  ),
+                ),
+              ),
               Row(
                 children: [
-                  const Text('Filter',
+                  const Text('Filter & Urutkan',
                       style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w700)),
+                          fontSize: 18, fontWeight: FontWeight.w800)),
                   const Spacer(),
                   TextButton(
                     onPressed: () {
@@ -531,43 +610,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              Gap.h16,
               const Text('Urutkan',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              Gap.h8,
               GestureDetector(
                 onTap: _loadingLocation
                     ? null
                     : () => setSheetState(() => tempNearest = !tempNearest),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: tempNearest ? AppColors.primary : AppColors.surface,
-                    borderRadius: BorderRadius.circular(8),
+                    gradient: tempNearest ? AppGradients.brand : null,
+                    color: tempNearest ? null : AppColors.surfaceAlt,
+                    borderRadius: AppRadius.rMd,
                     border: Border.all(
-                      color: tempNearest ? AppColors.primary : AppColors.border,
+                      color: tempNearest ? Colors.transparent : AppColors.border,
                     ),
                   ),
                   child: Row(
                     children: [
                       Icon(
-                        Icons.near_me_outlined,
+                        Icons.near_me_rounded,
                         size: 18,
                         color: tempNearest ? Colors.white : AppColors.textSecondary,
                       ),
-                      const SizedBox(width: 8),
+                      Gap.w8,
                       Text(
                         'Terdekat dari saya',
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: tempNearest
-                              ? Colors.white
-                              : AppColors.textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: tempNearest ? Colors.white : AppColors.textSecondary,
                         ),
                       ),
                       if (_loadingLocation) ...[
-                        const SizedBox(width: 8),
+                        Gap.w8,
                         const SizedBox(
                           width: 14,
                           height: 14,
@@ -578,10 +656,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              Gap.h20,
               const Text('Kota',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              Gap.h8,
               TextFormField(
                 initialValue: tempCity,
                 decoration: const InputDecoration(
@@ -591,12 +669,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 onChanged: (v) => setSheetState(() => tempCity = v.isEmpty ? null : v),
               ),
-              const SizedBox(height: 16),
+              Gap.h20,
               const Text('Harga Maksimum',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              Gap.h12,
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: [
                   ..._priceOptions.map((p) {
                     final label = p == 0 ? 'Gratis' : 'Rp ${(p / 1000).toInt()}rb';
@@ -604,19 +683,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     return GestureDetector(
                       onTap: () => setSheetState(() => tempMax = sel ? null : p),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
-                          color: sel ? AppColors.primary : AppColors.surface,
-                          borderRadius: BorderRadius.circular(8),
+                          gradient: sel ? AppGradients.brand : null,
+                          color: sel ? null : AppColors.surfaceAlt,
+                          borderRadius: AppRadius.rSm,
                           border: Border.all(
-                            color: sel ? AppColors.primary : AppColors.border,
+                            color: sel ? Colors.transparent : AppColors.border,
                           ),
                         ),
                         child: Text(
                           label,
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: sel ? Colors.white : AppColors.textSecondary,
                           ),
                         ),
@@ -625,7 +705,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   }),
                 ],
               ),
-              const SizedBox(height: 24),
+              Gap.h24,
               ElevatedButton(
                 onPressed: () async {
                   setState(() {

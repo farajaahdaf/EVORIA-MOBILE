@@ -150,10 +150,10 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
   Widget _buildOrderInfo(OrderModel order) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        borderRadius: AppRadius.rLg,
+        boxShadow: AppShadows.soft,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,10 +211,10 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        borderRadius: AppRadius.rLg,
+        boxShadow: AppShadows.soft,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,10 +299,10 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
   Widget _buildTotalSection(OrderModel order) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        borderRadius: AppRadius.rLg,
+        boxShadow: AppShadows.soft,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

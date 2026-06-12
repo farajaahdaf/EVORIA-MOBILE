@@ -31,7 +31,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   final _ticketKey = GlobalKey();
   late final AnimationController _highlightCtrl = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 600),
+    duration: const Duration(milliseconds: 700),
   );
   late final Animation<double> _highlightAnim =
       CurvedAnimation(parent: _highlightCtrl, curve: Curves.easeInOut);
@@ -50,7 +50,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
       ctx,
       duration: const Duration(milliseconds: 450),
       curve: Curves.easeInOut,
-      alignment: 0.0,
+      alignment: 0.05,
     ).then((_) {
       _highlightCtrl.forward(from: 0).then((_) => _highlightCtrl.reverse());
     });
@@ -71,8 +71,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             quantity: _quantity,
           );
 
-      // Notifikasi setiap pembelian — dipicu saat order dibuat, tidak
-      // menunggu hasil pembayaran (berlaku untuk tiket gratis & berbayar).
       await NotificationService.instance.showOrderPlaced(
         eventTitle: event.title,
         orderKey: result.orderNumber,
@@ -92,7 +90,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message), backgroundColor: AppColors.success),
+          SnackBar(
+              content: Text(result.message),
+              backgroundColor: AppColors.success),
         );
         context.go('/orders');
       } else {
@@ -121,12 +121,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
     return eventAsync.when(
       data: (event) => _buildContent(event),
-      loading: () => Scaffold(
+      loading: () => const Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(backgroundColor: AppColors.surface),
-        body: const Center(child: CircularProgressIndicator()),
+        body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Scaffold(
+        backgroundColor: AppColors.background,
         appBar: AppBar(title: const Text('Detail Event')),
         body: Center(child: Text(e.toString())),
       ),
@@ -143,22 +143,19 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         slivers: [
           _buildHero(event),
           SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildMainInfo(event),
-                const Divider(height: 1),
-                _buildDescription(event),
-                if (event.latitude != null && event.longitude != null) ...[
-                  const Divider(height: 1),
-                  _buildMap(event),
+            child: Transform.translate(
+              offset: const Offset(0, -24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildMainInfo(event),
+                  _buildDescription(event),
+                  if (event.latitude != null && event.longitude != null)
+                    _buildMap(event),
+                  if (event.tickets.isNotEmpty) _buildTicketSection(event),
+                  const SizedBox(height: 80),
                 ],
-                if (event.tickets.isNotEmpty) ...[
-                  const Divider(height: 1),
-                  _buildTicketSection(event),
-                ],
-                const SizedBox(height: 100),
-              ],
+              ),
             ),
           ),
         ],
@@ -171,105 +168,172 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
   Widget _buildHero(EventModel event) {
     return SliverAppBar(
-      expandedHeight: 260,
+      expandedHeight: 200,
       pinned: true,
-      backgroundColor: AppColors.surface,
+      stretch: true,
+      backgroundColor: AppColors.ink,
       foregroundColor: Colors.white,
-      flexibleSpace: FlexibleSpaceBar(
-        background: event.bannerUrl.isNotEmpty
-            ? CachedNetworkImage(
-                imageUrl: event.bannerUrl,
-                fit: BoxFit.cover,
-                placeholder: (_, _) =>
-                    Container(color: AppColors.primaryLight),
-                errorWidget: (_, _, _) =>
-                    Container(color: AppColors.primaryLight,
-                      child: const Center(child: Icon(Icons.event, size: 60, color: AppColors.primary)),
-                    ),
-              )
-            : Container(
-                color: AppColors.primaryLight,
-                child: const Center(
-                  child: Icon(Icons.event, size: 80, color: AppColors.primary),
-                ),
-              ),
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 12),
+        child: _circleButton(
+          Icons.arrow_back_ios_new_rounded,
+          () => context.pop(),
+        ),
       ),
-      leading: IconButton(
-        onPressed: () => context.pop(),
-        icon: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.4),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.arrow_back_ios_new, size: 18),
+      flexibleSpace: FlexibleSpaceBar(
+        stretchModes: const [StretchMode.zoomBackground],
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            event.bannerUrl.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: event.bannerUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (_, _) =>
+                        const ColoredBox(color: AppColors.primaryDeep),
+                    errorWidget: (_, _, _) => _heroFallback(),
+                  )
+                : _heroFallback(),
+            const DecoratedBox(
+              decoration: BoxDecoration(gradient: AppGradients.bannerScrim),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  Widget _heroFallback() => const DecoratedBox(
+        decoration: BoxDecoration(gradient: AppGradients.brand),
+        child: Center(
+          child: Icon(Icons.celebration_outlined, size: 72, color: Colors.white24),
+        ),
+      );
+
+  Widget _circleButton(IconData icon, VoidCallback onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.4),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white24),
+          ),
+          child: Icon(icon, size: 17, color: Colors.white),
+        ),
+      );
+
+  Widget _card({required Widget child, EdgeInsets? padding}) => Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        padding: padding ?? const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadius.rXl,
+          boxShadow: AppShadows.soft,
+        ),
+        child: child,
+      );
+
   Widget _buildMainInfo(EventModel event) {
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.all(20),
+    return _card(
+      padding: const EdgeInsets.fromLTRB(18, 30, 18, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (event.category != null)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(6),
+                gradient: AppGradients.brand,
+                borderRadius: AppRadius.rSm,
               ),
-              child: Text(
-                event.category!.name,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(categoryIcon(event.category!.name),
+                      size: 12, color: Colors.white),
+                  Gap.w4,
+                  Text(
+                    event.category!.name,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ),
-          const SizedBox(height: 10),
+          Gap.h12,
           Text(
             event.title,
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
-              height: 1.3,
+              height: 1.25,
+              letterSpacing: -0.4,
             ),
           ),
-          const SizedBox(height: 16),
-          _infoRow(Icons.calendar_today_outlined, formatDateTime(event.startTime)),
+          Gap.h16,
+          _infoRow(Icons.calendar_today_rounded, 'Tanggal & Waktu',
+              formatDateTime(event.startTime)),
           if (event.endTime != null) ...[
-            const SizedBox(height: 8),
-            _infoRow(Icons.access_time_outlined,
-                'Selesai ${formatDateTime(event.endTime)}'),
+            Gap.h12,
+            _infoRow(Icons.access_time_rounded, 'Selesai',
+                formatDateTime(event.endTime)),
           ],
-          const SizedBox(height: 8),
-          if (event.locationName != null)
-            _infoRow(Icons.location_on_outlined,
-                '${event.locationName}${event.address != null ? '\n${event.address}' : ''}'),
+          if (event.locationName != null) ...[
+            Gap.h12,
+            _infoRow(
+              Icons.location_on_rounded,
+              'Lokasi',
+              '${event.locationName}${event.address != null ? '\n${event.address}' : ''}',
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _infoRow(IconData icon, String text) => Row(
+  Widget _infoRow(IconData icon, String label, String value) => Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: AppColors.primary),
-          const SizedBox(width: 10),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: AppRadius.rSm,
+            ),
+            child: Icon(icon, size: 18, color: AppColors.primary),
+          ),
+          Gap.w12,
           Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textPrimary,
-                height: 1.4,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.textLight,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -279,15 +343,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     if (event.description == null || event.description!.isEmpty) {
       return const SizedBox.shrink();
     }
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.all(20),
+    return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Tentang Event',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 10),
+          _sectionTitle('Tentang Event'),
+          Gap.h12,
           Text(
             event.description!,
             style: const TextStyle(
@@ -301,20 +362,36 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     );
   }
 
+  Widget _sectionTitle(String text) => Row(
+        children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: const BoxDecoration(
+              gradient: AppGradients.brand,
+              borderRadius: BorderRadius.all(Radius.circular(4)),
+            ),
+          ),
+          Gap.w8,
+          Text(text,
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3)),
+        ],
+      );
+
   Widget _buildMap(EventModel event) {
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.all(20),
+    return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Lokasi Event',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
+          _sectionTitle('Lokasi Event'),
+          Gap.h12,
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppRadius.rMd,
             child: SizedBox(
-              height: 200,
+              height: 180,
               child: GoogleMap(
                 initialCameraPosition: CameraPosition(
                   target: LatLng(event.latitude!, event.longitude!),
@@ -324,7 +401,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                   Marker(
                     markerId: const MarkerId('event'),
                     position: LatLng(event.latitude!, event.longitude!),
-                    infoWindow: InfoWindow(title: event.locationName ?? event.title),
+                    infoWindow:
+                        InfoWindow(title: event.locationName ?? event.title),
                   ),
                 },
                 zoomControlsEnabled: false,
@@ -345,81 +423,56 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         final glow = _highlightAnim.value;
         return Container(
           key: _ticketKey,
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: AppColors.surface,
-            border: Border(
-              left: BorderSide(
-                color: AppColors.primary.withValues(alpha: glow * 0.8),
-                width: 3 * glow,
-              ),
+            borderRadius: AppRadius.rXl,
+            border: Border.all(
+              color: Color.lerp(
+                  Colors.transparent, AppColors.primary, glow)!,
+              width: 1.6,
             ),
             boxShadow: glow > 0
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: glow * 0.15),
-                      blurRadius: 12 * glow,
-                      spreadRadius: 2 * glow,
-                    ),
-                  ]
-                : null,
+                ? AppShadows.glow(AppColors.primary, opacity: glow * 0.3)
+                : AppShadows.soft,
           ),
-          padding: const EdgeInsets.all(20),
           child: child,
         );
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AnimatedBuilder(
-            animation: _highlightAnim,
-            builder: (_, child) => Transform.translate(
-              // Efek shake kecil saat highlight
-              offset: Offset(
-                _highlightAnim.value > 0
-                    ? 4 * (_highlightAnim.value < 0.5
-                        ? _highlightAnim.value * 2
-                        : (1 - _highlightAnim.value) * 2) *
-                        (_highlightCtrl.lastElapsedDuration?.inMilliseconds ?? 0) % 2 == 0
-                        ? 1.0
-                        : -1.0
-                    : 0,
-                0,
+          Row(
+            children: [
+              _sectionTitle('Pilih Tiket'),
+              const SizedBox(width: 8),
+              AnimatedBuilder(
+                animation: _highlightAnim,
+                builder: (_, _) => _highlightAnim.value > 0.05
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary
+                              .withValues(alpha: _highlightAnim.value),
+                          borderRadius: AppRadius.rSm,
+                        ),
+                        child: const Text(
+                          'Pilih dulu',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
-              child: child!,
-            ),
-            child: Row(
-              children: [
-                const Text(
-                  'Pilih Tiket',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(width: 6),
-                AnimatedBuilder(
-                  animation: _highlightAnim,
-                  builder: (_, _) => _highlightAnim.value > 0
-                      ? Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(
-                                alpha: _highlightAnim.value * 0.9),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text(
-                            'Pilih dulu',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ),
+            ],
           ),
-          const SizedBox(height: 12),
+          Gap.h12,
           ...event.tickets.map((t) => _buildTicketOption(t)),
         ],
       ),
@@ -432,21 +485,41 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
     return GestureDetector(
       onTap: unavailable ? null : () => setState(() => _selectedTicket = ticket),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: unavailable
-              ? AppColors.background
+              ? AppColors.surfaceAlt
               : (selected ? AppColors.primaryLight : AppColors.surface),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: AppRadius.rMd,
           border: Border.all(
             color: selected ? AppColors.primary : AppColors.border,
-            width: selected ? 2 : 1,
+            width: selected ? 1.8 : 1,
           ),
         ),
         child: Row(
           children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                gradient: (selected && !unavailable) ? AppGradients.brand : null,
+                color: (selected && !unavailable)
+                    ? null
+                    : AppColors.surfaceAlt,
+                borderRadius: AppRadius.rSm,
+              ),
+              child: Icon(
+                Icons.confirmation_number_rounded,
+                size: 20,
+                color: (selected && !unavailable)
+                    ? Colors.white
+                    : AppColors.textLight,
+              ),
+            ),
+            Gap.w12,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -454,22 +527,14 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                   Text(
                     ticket.name,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 14.5,
                       fontWeight: FontWeight.w700,
-                      color: unavailable ? AppColors.textLight : AppColors.textPrimary,
+                      color: unavailable
+                          ? AppColors.textLight
+                          : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    ticket.isFree ? 'Gratis' : formatRupiah(ticket.price),
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: unavailable
-                          ? AppColors.textLight
-                          : (ticket.isFree ? AppColors.success : AppColors.primary),
-                    ),
-                  ),
                   Text(
                     unavailable
                         ? 'Habis terjual'
@@ -482,8 +547,28 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 ],
               ),
             ),
-            if (selected && !unavailable)
-              const Icon(Icons.check_circle, color: AppColors.primary, size: 24),
+            Gap.w8,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  ticket.isFree ? 'Gratis' : formatRupiah(ticket.price),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    color: unavailable
+                        ? AppColors.textLight
+                        : (ticket.isFree ? AppColors.success : AppColors.primary),
+                  ),
+                ),
+                if (selected && !unavailable) ...[
+                  const SizedBox(height: 2),
+                  const Icon(Icons.check_circle_rounded,
+                      color: AppColors.primary, size: 18),
+                ],
+              ],
+            ),
           ],
         ),
       ),
@@ -496,10 +581,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         : event.lowestPrice ?? 0;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 26),
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        boxShadow: [
+          BoxShadow(color: Color(0x141B2A4A), blurRadius: 20, offset: Offset(0, -6)),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -508,54 +595,58 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Jumlah', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                Row(
-                  children: [
-                    _qtyBtn(Icons.remove, () {
-                      if (_quantity > 1) setState(() => _quantity--);
-                    }),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('$_quantity',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                    ),
-                    _qtyBtn(Icons.add, () {
-                      if (_quantity < 5) setState(() => _quantity++);
-                    }),
-                  ],
+                const Text('Jumlah Tiket',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceAlt,
+                    borderRadius: AppRadius.rSm,
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      _qtyBtn(Icons.remove_rounded, () {
+                        if (_quantity > 1) setState(() => _quantity--);
+                      }),
+                      SizedBox(
+                        width: 36,
+                        child: Text('$_quantity',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w800)),
+                      ),
+                      _qtyBtn(Icons.add_rounded, () {
+                        if (_quantity < 5) setState(() => _quantity++);
+                      }),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            Gap.h12,
           ],
           Row(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Total',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                    Text(
-                      price == 0 ? 'Gratis' : formatRupiah(price),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Total',
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  const SizedBox(height: 2),
+                  Text(
+                    price == 0 ? 'Gratis' : formatRupiah(price),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: AppColors.textPrimary,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: isLoggedIn
-                      ? () => _bookTicket(event)
-                      : () => context.push('/login'),
-                  child: Text(isLoggedIn ? 'Beli Tiket' : 'Masuk untuk Membeli'),
-                ),
-              ),
+              Gap.w16,
+              Expanded(child: _gradientCta(event, isLoggedIn)),
             ],
           ),
         ],
@@ -563,16 +654,58 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     );
   }
 
+  Widget _gradientCta(EventModel event, bool isLoggedIn) {
+    return GestureDetector(
+      onTap: _booking
+          ? null
+          : (isLoggedIn ? () => _bookTicket(event) : () => context.push('/login')),
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          gradient: AppGradients.brand,
+          borderRadius: AppRadius.rMd,
+          boxShadow: AppShadows.glow(AppColors.primary, opacity: 0.32),
+        ),
+        alignment: Alignment.center,
+        child: _booking
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2.4),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isLoggedIn
+                        ? Icons.shopping_bag_rounded
+                        : Icons.login_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  Gap.w6,
+                  Text(
+                    isLoggedIn ? 'Beli Tiket' : 'Masuk untuk Beli',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
   Widget _qtyBtn(IconData icon, VoidCallback onTap) => GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 16, color: AppColors.textPrimary),
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
+          child: Icon(icon, size: 18, color: AppColors.primary),
         ),
       );
 }

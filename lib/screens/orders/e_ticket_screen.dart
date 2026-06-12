@@ -41,17 +41,10 @@ class ETicketScreen extends StatelessWidget {
   Widget _buildTicketCard(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: AppRadius.rXl,
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         children: [
@@ -60,7 +53,8 @@ class ETicketScreen extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: _isValid ? AppColors.primary : AppColors.textSecondary,
+              gradient: _isValid ? AppGradients.brand : null,
+              color: _isValid ? null : AppColors.textSecondary,
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(20)),
             ),
