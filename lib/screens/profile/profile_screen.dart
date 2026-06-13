@@ -152,13 +152,13 @@ class ProfileScreen extends ConsumerWidget {
             subtitle: 'Ubah nama, email, foto & password',
             onTap: () => context.push('/profile/edit'),
           ),
-          const Divider(height: 1, indent: 72),
-          _menuItem(
-            icon: Icons.confirmation_number_rounded,
-            title: 'Tiket Saya',
-            subtitle: 'Lihat semua tiket & pesanan',
-            onTap: () => context.go('/orders'),
-          ),
+          // const Divider(height: 1, indent: 72),
+          // _menuItem(
+          //   icon: Icons.confirmation_number_rounded,
+          //   title: 'Tiket Saya',
+          //   subtitle: 'Lihat semua tiket & pesanan',
+          //   onTap: () => context.go('/orders'),
+          // ),
           const Divider(height: 1, indent: 72),
           _menuItem(
             icon: Icons.logout_rounded,
