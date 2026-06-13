@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/services/location_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -8,6 +9,7 @@ import '../../core/utils/format_utils.dart';
 import '../../models/event_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/events_provider.dart';
+import '../../providers/location_provider.dart';
 import '../../repositories/event_repository.dart';
 import '../../repositories/order_repository.dart';
 import '../../widgets/category_selector.dart';
@@ -28,9 +30,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _selectedCity;
   double? _maxPrice;
   bool _sortByNearest = false;
-  Position? _userPosition;
   String? _userAddress;
   bool _loadingLocation = false;
+
+  /// Posisi efektif untuk sortir Beranda: hanya saat "Terdekat dari saya" aktif.
+  /// Sumbernya provider bersama (lihat [userPositionProvider]) sehingga konsisten
+  /// dengan lokasi terbaru yang dipakai chatbot.
+  Position? get _userPosition =>
+      _sortByNearest ? ref.read(userPositionProvider) : null;
   final List<double> _priceOptions = [0, 50000, 100000, 200000, 500000];
 
   // Cukup sekali per sesi app: jadwalkan ulang reminder dari order yang dibayar.
@@ -39,6 +46,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // Re-hydrate state dari filter persisten agar tidak hilang saat Beranda
+    // dibuat ulang (mis. setelah pindah tab ke AI lalu kembali).
+    final f = ref.read(activeFilterProvider);
+    _selectedCategoryId = f.categoryId;
+    _selectedCity = f.city;
+    _maxPrice = f.maxPrice;
+    _sortByNearest = f.sortNearest;
+    _searchCtrl.text = f.search ?? '';
+    _userAddress = ref.read(userAddressProvider);
     _reconcileReminders();
   }
 
@@ -46,6 +62,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// mendatang. Membuat reminder tetap konsisten setelah app/device restart.
   Future<void> _reconcileReminders() async {
     if (_remindersReconciled) return;
+    // Guest belum punya order → lewati (hindari panggilan /orders yang 401).
+    if (ref.read(authProvider).status != AuthStatus.authenticated) return;
     _remindersReconciled = true;
     try {
       final orders = await ref.read(orderRepositoryProvider).getOrders();
@@ -80,41 +98,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _applyFilter() {
+    // Sortir "terdekat" dilakukan di backend (atas SEMUA event) → kirim lat/lng.
+    final pos = _sortByNearest ? ref.read(userPositionProvider) : null;
     ref.read(activeFilterProvider.notifier).state = EventFilter(
       search: _searchCtrl.text.trim(),
       categoryId: _selectedCategoryId,
       city: _selectedCity,
       maxPrice: _maxPrice,
+      sortNearest: _sortByNearest && pos != null,
+      lat: pos?.latitude,
+      lng: pos?.longitude,
     );
   }
 
+  void _setAddress(String? addr) {
+    if (mounted) setState(() => _userAddress = addr);
+    ref.read(userAddressProvider.notifier).state = addr;
+  }
+
   void _disableNearestSort() {
-    setState(() {
-      _sortByNearest = false;
-      _userPosition = null;
-      _userAddress = null;
-    });
+    // Provider posisi sengaja tidak dihapus (tetap dipakai chatbot & saat
+    // sortir diaktifkan lagi); cukup matikan flag sortir Beranda.
+    setState(() => _sortByNearest = false);
+    _setAddress(null);
+    _applyFilter();
   }
 
   Future<void> _enableNearestSort() async {
     setState(() => _loadingLocation = true);
     final result = await LocationService.getCurrentPosition();
     if (!mounted) return;
-    setState(() => _loadingLocation = false);
 
     if (result.isSuccess) {
       final pos = result.position!;
-      setState(() {
-        _userPosition = pos;
-        _sortByNearest = true;
-      });
-      final addr = await LocationService.reverseGeocode(
-        pos.latitude,
-        pos.longitude,
-      );
-      if (mounted) setState(() => _userAddress = addr);
+      ref.read(userPositionProvider.notifier).state = pos;
+      setState(() => _sortByNearest = true);
+      _applyFilter();
+      // Pertahankan loading sampai event terdekat benar-benar termuat — supaya
+      // tidak ada kedip konten lama sebelum hasil terurut muncul.
+      try {
+        await ref.read(eventsProvider(ref.read(activeFilterProvider)).future);
+      } catch (_) {/* error akan tampil di grid lewat eventsProvider */}
+      if (!mounted) return;
+      setState(() => _loadingLocation = false);
+      LocationService.reverseGeocode(pos.latitude, pos.longitude).then(_setAddress);
       return;
     }
+
+    setState(() => _loadingLocation = false);
 
     final msg = switch (result.status) {
       LocationResultStatus.serviceDisabled =>
@@ -138,21 +169,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  List<EventModel> _sortedEvents(List<EventModel> events) {
-    if (!_sortByNearest || _userPosition == null) return events;
-    final pos = _userPosition!;
-    final withDist = events.map((e) {
-      final hasCoord = e.latitude != null && e.longitude != null;
-      final dist = hasCoord
-          ? LocationService.distanceKm(
-              pos.latitude, pos.longitude, e.latitude!, e.longitude!)
-          : double.infinity;
-      return (event: e, dist: dist);
-    }).toList()
-      ..sort((a, b) => a.dist.compareTo(b.dist));
-    return withDist.map((p) => p.event).toList();
-  }
-
   bool get _hasActiveFilter =>
       _selectedCity != null || _maxPrice != null || _sortByNearest;
 
@@ -162,6 +178,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final categoriesAsync = ref.watch(categoriesProvider);
     final filter = ref.watch(activeFilterProvider);
     final eventsAsync = ref.watch(eventsProvider(filter));
+
+    // Posisi bersama bisa berubah dari layar lain (chatbot). Pantau agar sortir
+    // "Terdekat dari saya" + label lokasi Beranda otomatis ikut lokasi terbaru.
+    ref.watch(userPositionProvider);
+    ref.listen<Position?>(userPositionProvider, (_, next) {
+      if (!_sortByNearest || next == null) return;
+      _applyFilter(); // refetch event terdekat dengan koordinat terbaru
+      LocationService.reverseGeocode(next.latitude, next.longitude).then(_setAddress);
+    });
 
     final isSearching = (filter.search ?? '').isNotEmpty;
     final showHero = !isSearching &&
@@ -198,7 +223,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             SliverToBoxAdapter(child: _buildUserLocationBar()),
             eventsAsync.when(
               data: (result) {
-                final events = _sortedEvents(result.data);
+                // Saat menyiapkan "terdekat" (ambil GPS + muat ulang event),
+                // tahan loading agar konten lama tidak sempat terlihat.
+                if (_loadingLocation) {
+                  return const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(60),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  );
+                }
+                // Sudah terurut dari backend (terdekat) saat sortir aktif.
+                final events = result.data;
                 return SliverMainAxisGroup(
                   slivers: [
                     if (showHero && events.isNotEmpty) ...[
@@ -311,6 +347,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                 ],
+              ),
+            )
+          else
+            // Guest: tombol masuk cepat (browsing tetap bebas tanpa login).
+            GestureDetector(
+              onTap: () => context.push('/login?returnTo=/home'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: AppGradients.brand,
+                  borderRadius: AppRadius.rXl,
+                  boxShadow: AppShadows.glow(AppColors.primary, opacity: 0.28),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.login_rounded, size: 15, color: Colors.white),
+                    SizedBox(width: 6),
+                    Text(
+                      'Masuk',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -468,12 +532,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 setState(() {
                   if (f.startsWith('Kota')) _selectedCity = null;
                   if (f.startsWith('Max') || f == 'Gratis') _maxPrice = null;
-                  if (f == 'Terdekat dari saya') {
-                    _sortByNearest = false;
-                    _userPosition = null;
-                    _userAddress = null;
-                  }
+                  if (f == 'Terdekat dari saya') _sortByNearest = false;
                 });
+                if (f == 'Terdekat dari saya') _setAddress(null);
                 _applyFilter();
               },
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -534,20 +595,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         delegate: SliverChildBuilderDelegate(
           (_, i) {
             final ev = events[i];
-            double? dist;
-            if (_userPosition != null &&
-                ev.latitude != null &&
-                ev.longitude != null) {
-              dist = LocationService.distanceKm(
-                _userPosition!.latitude,
-                _userPosition!.longitude,
-                ev.latitude!,
-                ev.longitude!,
-              );
-            } else if (_userPosition != null) {
-              dist = double.infinity;
-            }
-            return EventCard(event: ev, distanceKm: dist);
+            // Jarak dihitung backend saat sortir "terdekat" aktif.
+            return EventCard(event: ev, distanceKm: ev.distanceKm);
           },
           childCount: events.length,
         ),

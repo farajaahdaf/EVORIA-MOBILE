@@ -19,9 +19,26 @@ class ChatbotRepository {
 
   ChatbotRepository(this._client);
 
-  Future<ChatbotResult> sendMessage(String prompt) async {
+  Future<ChatbotResult> sendMessage(
+    String prompt, {
+    double? lat,
+    double? lng,
+  }) async {
     try {
-      final res = await _client.dio.post('/chatbot', data: {'prompt': prompt});
+      // Chatbot memanggil layanan AI di backend (relatif lambat), jadi beri
+      // timeout lebih longgar daripada default Dio (15s) agar tidak putus.
+      final res = await _client.dio.post(
+        '/chatbot',
+        data: {
+          'prompt': prompt,
+          'lat': ?lat,
+          'lng': ?lng,
+        },
+        options: Options(
+          receiveTimeout: const Duration(seconds: 60),
+          sendTimeout: const Duration(seconds: 30),
+        ),
+      );
       final text = res.data['response'] as String? ?? '';
       final rawEvents = res.data['events'] as List<dynamic>? ?? [];
       final events = rawEvents

@@ -177,7 +177,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         padding: const EdgeInsets.only(left: 12),
         child: _circleButton(
           Icons.arrow_back_ios_new_rounded,
-          () => context.pop(),
+          // Setelah login via ?returnTo, stack bisa kosong → fallback ke Home.
+          () => context.canPop() ? context.pop() : context.go('/home'),
         ),
       ),
       flexibleSpace: FlexibleSpaceBar(
@@ -658,7 +659,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     return GestureDetector(
       onTap: _booking
           ? null
-          : (isLoggedIn ? () => _bookTicket(event) : () => context.push('/login')),
+          : (isLoggedIn
+              ? () => _bookTicket(event)
+              : () => context.push(
+                  '/login?returnTo=${Uri.encodeComponent('/events/${event.id}')}')),
       child: Container(
         height: 54,
         decoration: BoxDecoration(

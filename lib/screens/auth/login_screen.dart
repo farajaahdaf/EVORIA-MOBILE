@@ -36,7 +36,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(authProvider);
-    final isLoading = state.status == AuthStatus.loading;
+    // Pertahankan loading sampai benar-benar berpindah layar (status authenticated
+    // memicu redirect ke Home) agar tombol tidak sempat "aktif lagi" sekejap.
+    final isLoading = state.status == AuthStatus.loading ||
+        state.status == AuthStatus.authenticated;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -124,7 +127,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             AuthFooterLink(
               question: 'Belum punya akun? ',
               action: 'Daftar sekarang',
-              onTap: () => context.go('/register'),
+              onTap: () {
+                final returnTo =
+                    GoRouterState.of(context).uri.queryParameters['returnTo'];
+                context.go(returnTo != null && returnTo.isNotEmpty
+                    ? '/register?returnTo=${Uri.encodeComponent(returnTo)}'
+                    : '/register');
+              },
             ),
             const SizedBox(height: 24),
           ],

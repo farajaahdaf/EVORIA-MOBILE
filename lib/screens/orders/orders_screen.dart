@@ -2,17 +2,93 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
 import '../../models/order_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/orders_provider.dart';
 import '../../widgets/evoria_app_bar.dart';
+import '../../widgets/guest_prompt.dart';
 
-class OrdersScreen extends ConsumerWidget {
+/// Arah pengurutan berdasarkan tanggal pemesanan (order date).
+enum _OrderSort { newest, oldest }
+
+class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OrdersScreen> createState() => _OrdersScreenState();
+}
+
+class _OrdersScreenState extends ConsumerState<OrdersScreen> {
+  _OrderSort _sort = _OrderSort.newest;
+
+  /// Kunci bulan event yang dipilih (year*100 + month). null = semua bulan.
+  int? _monthKey;
+
+  /// Tanggal mulai event dari sebuah order (acuan filter bulan).
+  DateTime? _eventStartOf(OrderModel order) {
+    if (order.orderItems.isEmpty) return null;
+    return order.orderItems.first.ticket?.event?.startTime;
+  }
+
+  /// Tanggal acuan pengurutan (tanggal order; fallback id agar stabil).
+  DateTime _orderDateOf(OrderModel order) =>
+      order.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+  int? _monthKeyOf(DateTime? dt) => dt == null ? null : dt.year * 100 + dt.month;
+
+  /// Daftar bulan event yang tersedia dari semua order, urut menaik.
+  List<int> _availableMonths(List<OrderModel> orders) {
+    final keys = <int>{};
+    for (final o in orders) {
+      final k = _monthKeyOf(_eventStartOf(o));
+      if (k != null) keys.add(k);
+    }
+    final list = keys.toList()..sort();
+    return list;
+  }
+
+  List<OrderModel> _applySortFilter(List<OrderModel> orders) {
+    var list = orders;
+    if (_monthKey != null) {
+      list = list
+          .where((o) => _monthKeyOf(_eventStartOf(o)) == _monthKey)
+          .toList();
+    } else {
+      list = List.of(list);
+    }
+    list.sort((a, b) {
+      final cmp = _orderDateOf(a).compareTo(_orderDateOf(b));
+      return _sort == _OrderSort.newest ? -cmp : cmp;
+    });
+    return list;
+  }
+
+  String _monthLabel(int key) {
+    final dt = DateTime(key ~/ 100, key % 100);
+    return DateFormat('MMM yyyy', 'id_ID').format(dt);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
+
+    // Guest (belum login) → minta masuk dulu, jangan panggil API yang 401.
+    if (auth.status != AuthStatus.authenticated) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const EvoriaAppBar(title: 'Tiket Saya'),
+        body: const GuestPrompt(
+          icon: Icons.confirmation_number_outlined,
+          title: 'Lihat Tiket Kamu',
+          message: 'Masuk untuk melihat pesanan dan e-tiket yang sudah kamu beli.',
+          returnTo: '/orders',
+        ),
+      );
+    }
+
     final ordersAsync = ref.watch(ordersProvider);
 
     return Scaffold(
@@ -27,17 +103,29 @@ class OrdersScreen extends ConsumerWidget {
         ],
       ),
       body: ordersAsync.when(
-        data: (orders) => orders.isEmpty
-            ? const _EmptyOrders()
-            : RefreshIndicator(
-                onRefresh: () async => ref.invalidate(ordersProvider),
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                  itemCount: orders.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 14),
-                  itemBuilder: (_, i) => _OrderCard(order: orders[i]),
+        data: (orders) {
+          if (orders.isEmpty) return const _EmptyOrders();
+          final months = _availableMonths(orders);
+          final visible = _applySortFilter(orders);
+          return Column(
+            children: [
+              _buildControls(months),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(ordersProvider),
+                  child: visible.isEmpty
+                      ? _buildNoMatch()
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                          itemCount: visible.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 14),
+                          itemBuilder: (_, i) => _OrderCard(order: visible[i]),
+                        ),
                 ),
               ),
+            ],
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Column(
@@ -58,6 +146,163 @@ class OrdersScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildControls(List<int> months) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Urutkan berdasarkan tanggal pemesanan ──────────────────────
+          Row(
+            children: [
+              const Icon(Icons.sort_rounded, size: 16, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
+              const Text(
+                'Urutkan',
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary),
+              ),
+              const Spacer(),
+              _sortPill('Terbaru', _OrderSort.newest),
+              const SizedBox(width: 8),
+              _sortPill('Terlama', _OrderSort.oldest),
+            ],
+          ),
+          if (months.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: const [
+                Icon(Icons.event_rounded, size: 16, color: AppColors.textSecondary),
+                SizedBox(width: 6),
+                Text(
+                  'Bulan event',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 34,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _monthChip('Semua', null),
+                  ...months.map((k) => _monthChip(_monthLabel(k), k)),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _sortPill(String label, _OrderSort value) {
+    final selected = _sort == value;
+    return GestureDetector(
+      onTap: () => setState(() => _sort = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          gradient: selected ? AppGradients.brand : null,
+          color: selected ? null : AppColors.surface,
+          borderRadius: AppRadius.rSm,
+          border: Border.all(
+              color: selected ? Colors.transparent : AppColors.border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: selected ? Colors.white : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _monthChip(String label, int? key) {
+    final selected = _monthKey == key;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () => setState(() => _monthKey = key),
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            gradient: selected ? AppGradients.brand : null,
+            color: selected ? null : AppColors.surface,
+            borderRadius: AppRadius.rSm,
+            border: Border.all(
+                color: selected ? Colors.transparent : AppColors.border),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: selected ? Colors.white : AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoMatch() {
+    return ListView(
+      // Tetap scrollable agar RefreshIndicator bisa dipakai.
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryLight,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.filter_alt_off_rounded,
+                    size: 44, color: AppColors.primary),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Tidak ada tiket di bulan ini',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Coba pilih bulan lain atau lihat semua.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: OutlinedButton(
+                  onPressed: () => setState(() => _monthKey = null),
+                  child: const Text('Tampilkan semua'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

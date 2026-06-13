@@ -2,11 +2,15 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/services/location_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
+import '../../providers/location_provider.dart';
 import '../../providers/orders_provider.dart';
 import '../../repositories/chatbot_repository.dart';
+import '../../widgets/event_card.dart';
 import '../../widgets/evoria_app_bar.dart';
 
 final _chatLoadingProvider = StateProvider<bool>((ref) => false);
@@ -29,6 +33,31 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
     super.dispose();
   }
 
+  /// Kata kunci yang menandakan user butuh hasil berbasis lokasi saat ini.
+  static const _locationKeywords = [
+    'terdekat',
+    'paling dekat',
+    'dekat sini',
+    'dekat saya',
+    'di sekitar',
+    'sekitar saya',
+    'sekitar sini',
+    'lokasi saya',
+    'lokasiku',
+    'dari lokasi',
+    'dari sini',
+    'jarak',
+    'nearby',
+    'near me',
+    'nearest',
+    'closest',
+  ];
+
+  bool _isLocationQuery(String text) {
+    final t = text.toLowerCase();
+    return _locationKeywords.any(t.contains);
+  }
+
   Future<void> _send() async {
     final text = _ctrl.text.trim();
     if (text.isEmpty) return;
@@ -40,7 +69,28 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
     _scrollToBottom();
 
     try {
-      final result = await ref.read(chatbotRepositoryProvider).sendMessage(text);
+      // Pertanyaan berbau lokasi → coba ambil posisi sekarang agar backend bisa
+      // mengurutkan event dari yang terdekat & melampirkan jaraknya.
+      double? lat;
+      double? lng;
+      if (_isLocationQuery(text)) {
+        final pos = await _resolveLocation();
+        if (pos != null) {
+          lat = pos.latitude;
+          lng = pos.longitude;
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Lokasi tidak tersedia. Aktifkan GPS/izin lokasi untuk hasil terdekat.'),
+            ),
+          );
+        }
+      }
+
+      final result = await ref
+          .read(chatbotRepositoryProvider)
+          .sendMessage(text, lat: lat, lng: lng);
       notifier.addMessage(ChatMessage(
         text: result.text,
         isUser: false,
@@ -54,6 +104,26 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
       ref.read(_chatLoadingProvider.notifier).state = false;
       _scrollToBottom();
     }
+  }
+
+  /// Ambil lokasi untuk query "terdekat" dengan batas waktu, supaya GPS yang
+  /// lama merespons (umum di emulator) tidak menggantung chat selamanya.
+  /// Kalau gagal/timeout, pakai posisi terakhir yang diketahui (dibagi dengan
+  /// Beranda lewat [userPositionProvider]).
+  Future<Position?> _resolveLocation() async {
+    final cached = ref.read(userPositionProvider);
+    try {
+      final result = await LocationService.getCurrentPosition()
+          .timeout(const Duration(seconds: 12));
+      if (result.isSuccess) {
+        // Bagikan posisi terbaru agar Beranda ikut konsisten.
+        ref.read(userPositionProvider.notifier).state = result.position;
+        return result.position;
+      }
+    } catch (_) {
+      // timeout / error → jatuh ke posisi cache di bawah.
+    }
+    return cached;
   }
 
   void _scrollToBottom() {
@@ -207,11 +277,11 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
   }
 
   static const _suggestions = [
+    'Event terdekat dari lokasi saya',
     'Ada konser di Jakarta bulan ini?',
     'Event murah akhir pekan ini?',
     'Cari workshop teknologi terdekat',
     'Event gratis di Bandung?',
-    'Seminar apa yang ada minggu ini?',
   ];
 
   Widget _buildInput(bool loading) {
@@ -394,8 +464,9 @@ class _EventCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasDistance = events.any((e) => e.distanceKm != null);
     return SizedBox(
-      height: 130,
+      height: hasDistance ? 152 : 130,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: events.length,
@@ -471,6 +542,25 @@ class _EventChip extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                  if (event.distanceKm != null) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.near_me_rounded,
+                            size: 11, color: AppColors.primary),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${EventCard.formatDistance(event.distanceKm!)} dari lokasimu',
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -19,6 +19,9 @@ class ChatEventCard {
   final String? bannerUrl;
   final String? category;
 
+  /// Jarak (km) dari lokasi user saat ini — hanya terisi untuk query "terdekat".
+  final double? distanceKm;
+
   const ChatEventCard({
     required this.id,
     required this.title,
@@ -27,6 +30,7 @@ class ChatEventCard {
     this.lowestPrice,
     this.bannerUrl,
     this.category,
+    this.distanceKm,
   });
 
   factory ChatEventCard.fromJson(Map<String, dynamic> j) => ChatEventCard(
@@ -39,6 +43,9 @@ class ChatEventCard {
             : null,
         bannerUrl: j['banner_url'] as String?,
         category: j['category'] as String?,
+        distanceKm: j['distance_km'] != null
+            ? double.tryParse(j['distance_km'].toString())
+            : null,
       );
 }
 

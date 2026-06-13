@@ -16,6 +16,9 @@ class EventFilter {
   final String? dateTo;
   final double? minPrice;
   final double? maxPrice;
+  final bool sortNearest;
+  final double? lat;
+  final double? lng;
   final int page;
 
   const EventFilter({
@@ -26,6 +29,9 @@ class EventFilter {
     this.dateTo,
     this.minPrice,
     this.maxPrice,
+    this.sortNearest = false,
+    this.lat,
+    this.lng,
     this.page = 1,
   });
 
@@ -37,8 +43,32 @@ class EventFilter {
         if (dateTo != null) 'date_to': dateTo,
         if (minPrice != null) 'min_price': minPrice,
         if (maxPrice != null) 'max_price': maxPrice,
+        if (sortNearest && lat != null && lng != null) ...{
+          'sort_nearest': true,
+          'lat': lat,
+          'lng': lng,
+        },
         'page': page,
       };
+
+  @override
+  bool operator ==(Object other) =>
+      other is EventFilter &&
+      other.search == search &&
+      other.categoryId == categoryId &&
+      other.city == city &&
+      other.dateFrom == dateFrom &&
+      other.dateTo == dateTo &&
+      other.minPrice == minPrice &&
+      other.maxPrice == maxPrice &&
+      other.sortNearest == sortNearest &&
+      other.lat == lat &&
+      other.lng == lng &&
+      other.page == page;
+
+  @override
+  int get hashCode => Object.hash(search, categoryId, city, dateFrom, dateTo,
+      minPrice, maxPrice, sortNearest, lat, lng, page);
 }
 
 class PaginatedEvents {

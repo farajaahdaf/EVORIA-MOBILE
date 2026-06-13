@@ -18,6 +18,9 @@ class EventModel {
   final CategoryModel? category;
   final List<TicketModel> tickets;
 
+  /// Jarak (km) dari lokasi user — terisi hanya saat backend mengurutkan "terdekat".
+  final double? distanceKm;
+
   EventModel({
     required this.id,
     required this.title,
@@ -33,6 +36,7 @@ class EventModel {
     required this.status,
     this.category,
     this.tickets = const [],
+    this.distanceKm,
   });
 
   String get bannerUrl => buildImageUrl(bannerPath);
@@ -75,5 +79,8 @@ class EventModel {
                 ?.map((t) => TicketModel.fromJson(t as Map<String, dynamic>))
                 .toList() ??
             [],
+        distanceKm: json['distance_km'] != null
+            ? double.tryParse(json['distance_km'].toString())
+            : null,
       );
 }

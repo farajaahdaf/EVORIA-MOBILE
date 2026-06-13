@@ -26,16 +26,29 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: _rootKey,
     initialLocation: '/',
     redirect: (context, state) {
-      final isAuth = authState.status == AuthStatus.authenticated;
-      final isInitial = authState.status == AuthStatus.initial;
+      final status = authState.status;
       final loc = state.matchedLocation;
 
-      if (isInitial) return '/';
-
-      if (!isAuth && loc != '/login' && loc != '/register') return '/login';
-      if (isAuth && (loc == '/' || loc == '/login' || loc == '/register')) {
-        return '/home';
+      // Masih memeriksa token tersimpan → tahan di splash.
+      if (status == AuthStatus.initial) {
+        return loc == '/' ? null : '/';
       }
+
+      final isAuth = status == AuthStatus.authenticated;
+
+      // Init selesai → tinggalkan splash. Guest maupun user login sama-sama
+      // mendarat di Home (browsing bebas tanpa wajib login).
+      if (loc == '/') return '/home';
+
+      // User yang sudah login tidak perlu lagi melihat login/register.
+      // Hormati ?returnTo agar setelah login kembali ke halaman asal (mis. detail event).
+      if (isAuth && (loc == '/login' || loc == '/register')) {
+        final returnTo = state.uri.queryParameters['returnTo'];
+        return (returnTo != null && returnTo.isNotEmpty) ? returnTo : '/home';
+      }
+
+      // Selebihnya: guest boleh akses Home, detail event, chatbot, Tiket, Profil.
+      // Aksi yang butuh akun (beli tiket, lihat tiket, profil) di-gate di masing-masing layar.
       return null;
     },
     routes: [
@@ -111,9 +124,26 @@ class EvoriaApp extends ConsumerWidget {
       title: 'Evoria',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      scrollBehavior: const _NoStretchScrollBehavior(),
       routerConfig: router,
     );
   }
+}
+
+/// Hilangkan efek "stretch"/glow overscroll bawaan Android (Material 3) yang
+/// bikin konten terasa melebar saat di-scroll mentok. Overscroll fisiknya tetap
+/// jalan (mis. SliverAppBar.stretch di detail event), hanya indikator visualnya
+/// yang dimatikan.
+class _NoStretchScrollBehavior extends MaterialScrollBehavior {
+  const _NoStretchScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) =>
+      child;
 }
 
 class MainShell extends StatefulWidget {

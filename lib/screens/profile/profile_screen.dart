@@ -4,13 +4,28 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/guest_prompt.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authProvider).user;
+    final auth = ref.watch(authProvider);
+    final user = auth.user;
+
+    // Guest (belum login) → tawarkan masuk/daftar, bukan spinner tanpa akhir.
+    if (auth.status != AuthStatus.authenticated) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: GuestPrompt(
+          icon: Icons.person_outline_rounded,
+          title: 'Masuk ke Akun Evoria',
+          message: 'Login untuk mengelola profil, melihat tiket, dan menyimpan preferensimu.',
+          returnTo: '/profile',
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -228,7 +243,8 @@ class ProfileScreen extends ConsumerWidget {
             onPressed: () async {
               Navigator.pop(dialogCtx);
               await ref.read(authProvider.notifier).logout();
-              if (context.mounted) context.go('/login');
+              // Kembali ke Home dalam mode guest (browsing tetap bebas tanpa login).
+              if (context.mounted) context.go('/home');
             },
             child: const Text('Keluar', style: TextStyle(color: AppColors.error)),
           ),

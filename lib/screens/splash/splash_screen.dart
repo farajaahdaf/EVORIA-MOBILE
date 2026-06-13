@@ -41,10 +41,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authProvider, (_, next) {
-      if (next.status == AuthStatus.authenticated) {
+      // Guest maupun user login sama-sama masuk ke Home; login hanya diminta
+      // saat aksi yang butuh akun (mis. beli tiket).
+      if (next.status == AuthStatus.authenticated ||
+          next.status == AuthStatus.unauthenticated) {
         context.go('/home');
-      } else if (next.status == AuthStatus.unauthenticated) {
-        context.go('/login');
       }
     });
 

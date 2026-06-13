@@ -55,18 +55,32 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
     final slides = _slides;
     if (slides.isEmpty) return const SizedBox.shrink();
 
+    final multi = slides.length > 1;
     return Column(
       children: [
-        SizedBox(
-          height: 208,
-          child: PageView.builder(
-            controller: _controller,
-            itemCount: slides.length,
-            onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (_, i) {
-              final active = i == _current;
-              return _Slide(event: slides[i], active: active);
-            },
+        // Pause auto-advance selagi user menyentuh banner, lalu lanjut lagi —
+        // supaya gesekan manual (termasuk mundur ke kanan) tidak "ditarik" balik
+        // oleh timer yang selalu maju.
+        Listener(
+          onPointerDown: (_) => _timer?.cancel(),
+          onPointerUp: (_) {
+            if (multi) _startAuto();
+          },
+          onPointerCancel: (_) {
+            if (multi) _startAuto();
+          },
+          child: SizedBox(
+            height: 208,
+            child: PageView.builder(
+              controller: _controller,
+              physics: const BouncingScrollPhysics(),
+              itemCount: slides.length,
+              onPageChanged: (i) => setState(() => _current = i),
+              itemBuilder: (_, i) {
+                final active = i == _current;
+                return _Slide(event: slides[i], active: active);
+              },
+            ),
           ),
         ),
         if (slides.length > 1) ...[
